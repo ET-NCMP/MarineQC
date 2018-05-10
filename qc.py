@@ -2237,9 +2237,9 @@ def mds_lat_to_yindex(lat, res=1.0):
         lat_local -= 0.001
            
     if lat > 0.0:
-        return 90/res - 1 - int(lat_local/res)
+        return int( 90/res - 1 - int(lat_local/res) )
     else:
-        return 90/res - int(lat_local/res)
+        return int( 90/res - int(lat_local/res) )
     
     pass
 
@@ -2299,9 +2299,9 @@ def mds_lon_to_xindex(lon, res=1.0):
     if long_local == 180:
         long_local -= 0.001   
     if long_local > 0.0:
-        return int(long_local/res) + 180/res
+        return int( int(long_local/res) + 180/res )
     else: 
-        return int(long_local/res) + 180/res - 1
+        return int( int(long_local/res) + 180/res - 1 )
 
 def lon_to_xindex(lon, res=1):
     '''
