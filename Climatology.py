@@ -26,22 +26,40 @@ class Climatology():
     def from_filename(cls, infile, var):
         '''
         Read in the climatology for variable var from infile
-        
+
         :param infile: filename of a netcdf file
         :param var: the variable name to be extracted from the netcdf file
         :type infile: string
         :type var: string
         '''
-        climatology = Dataset(infile)
-        field = climatology.variables[var][:]
+        if infile is not None:
+            climatology = Dataset(infile)
+            field = climatology.variables[var][:]
+            climatology.close()
 
-        if field.ndim == 4:
-            field = field[:,0,:,:]
+            if (field.shape[0] == 1 and 
+                field.shape[1] == 360 and 
+                field.shape[2] == 180):
+                field = field.transpose(0,2,1)
+
+            if field.ndim == 4:
+                field = field[:,0,:,:]
+        else:
+            field = np.ma.array(np.zeros((1,180*20,360*20)), mask=True)
 
         return cls(field)
 
     def get_tindex(self, month, day):
-
+        '''
+        Get the time index of the input month and day
+        
+        :param month: month for which the time index is required
+        :param day: day for which the time index is required
+        :type month: integer
+        :type day: integer
+        :return: time index for specified month and day.
+        :rtype: integer
+        '''
         if self.n == 1:
             tindex = 0
         if self.n == 73:
@@ -50,9 +68,42 @@ class Climatology():
             tindex = qc.day_in_year(month, day) - 1
 
         return tindex        
-   
-    def get_value_mds_style(self, lat, lon, month, day):
 
+    def get_value_ostia(self, lat, lon):
+
+        yindex = qc.mds_lat_to_yindex(lat, res=0.05)
+        xindex = qc.mds_lon_to_xindex(lon, res=0.05)
+        tindex = 0
+
+        result = self.field[tindex, yindex, xindex]
+
+        if type(result) is np.float64 or type(result) is np.float32:
+            pass
+        else:
+            if result.mask:
+                result = None
+            else:
+                result = result.data[0]
+
+        return result
+        
+
+    def get_value_mds_style(self, lat, lon, month, day):
+        '''
+        Get the value from the climatology at the give position and time using the MDS 
+        method for deciding which grid cell borderline cases fall into
+        
+        :param lat: latitude of location to extract value from in degrees
+        :param lon: longitude of location to extract value from in degrees
+        :param month: month for which the value is required
+        :param day: day for which the value is required
+        :type lat: float
+        :type lon: float
+        :type month: integer
+        :type day: integer
+        :return: climatology value at specified location and time.
+        :rtype: float
+        '''
         if month < 1 or month > 12:
             return None
         ml = qc.month_lengths(2004)
@@ -76,7 +127,20 @@ class Climatology():
         return result
 
     def get_value(self, lat, lon, month, day):
-
+        '''
+        Get the value from the climatology at the give position and time
+        
+        :param lat: latitude of location to extract value from in degrees
+        :param lon: longitude of location to extract value from in degrees
+        :param month: month for which the value is required
+        :param day: day for which the value is required
+        :type lat: float
+        :type lon: float
+        :type month: integer
+        :type day: integer
+        :return: climatology value at specified location and time.
+        :rtype: float
+        '''
         if month < 1 or month > 12:
             return None
         ml = qc.month_lengths(2004)
@@ -100,7 +164,21 @@ class Climatology():
         return result
     
     def get_interpolated_value(self, lat, lon, mo, dy):
-
+        '''
+        Get the value from the climatology interpolated to the precise location of 
+        the observation in time and space
+        
+        :param lat: latitude of location to extract value from in degrees
+        :param lon: longitude of location to extract value from in degrees
+        :param month: month for which the value is required
+        :param day: day for which the value is required
+        :type lat: float
+        :type lon: float
+        :type month: integer
+        :type day: integer
+        :return: climatology value at specified location and time.
+        :rtype: float
+        '''
 #check that the lat lon point falls in a grid cell with a value or on 
 #the border of one        
         if lat+0.001 < 90:

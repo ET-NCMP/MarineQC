@@ -8,869 +8,56 @@ import numpy as np
 import math
 import sys
 from datetime import datetime
+from datetime import timedelta
 import calendar
 import spherical_geometry as sph
 import csv
 
-class MarineReport:
-    
+def yesterday(year, month, day):
     '''
-    Class is an object for storing marine reports, containing information needed for the :term:`QC`. Coded items 
-    like ds and vs are automatically converted 
-    to appropriate units (degrees and knots respectively) and stored internally as dsi and vsi. The class also has 
-    attributes to store QC flags and climatological averages of SST and MAT. Marine reports in a list can be sorted 
-    into time order using the list sort function.
+    For specified year month and day return the year month and day of the day before.
+    
+    :param year: year
+    :param month: month
+    :param day: day
+    :type year: integer
+    :type month: integer
+    :type day: integer
+
+    :return: tuple of year, month and day, returns None if the input day does not exist (e.g. Feb 30th)
+    :rtype: integer
     '''
-    
-    def __init__(self, shipid, lat, lon, sst, mat, year, \
-                 month, day, hour, icoads_ds, icoads_vs, uid):
+    try:
+        dt = datetime(year, month, day)
+        delta = timedelta(-1)
+        dt = dt + delta
+        return dt.year,dt.month,dt.day
+    except:
+        return None, None, None
 
-        '''
-        Create a marine report.
-        
-        :param id: The 9-digit ID of the report, often the ship's callsign
-        :param lat: The latitude of the report in degrees
-        :param lon: the longitude of the report in degrees
-        :param sst: the reported sea-surface temperature in degrees C
-        :param mat: the reported air temperature in degrees C
-        :param year: the year of the report
-        :param month: the month of the report
-        :param day: the day of the report
-        :param hour: the hour of the report coded as a float from 0.0 to 23.99
-        :param ds: the ship's heading in IMMA codes 0-9
-        :param vs: the ship's speed in IMMA codes 
-        :param uid: string the uniquely identifies the report
-        :type id: string
-        :type lat: float
-        :type lon: float
-        :type sst: float
-        :type mat: float
-        :type year: integer 
-        :type month: integer
-        :type day: integer
-        :type hour: float
-        :type ds: integer
-        :type vs: integer
-        :type uid: string
-        
-        Marine reports can in created using this function. All the elements can be set to None if missing. ds and vs are 
-        converted internally to dsi and vsi in degrees and knots respectively using the IMMA look up tables. An internal 
-        dtime variable is set up which is used to order observations when sorted.
-        '''
-        
-        ds_convert = [0, 45, 90, 135, 180, 225, 270, 315, 360, None]
-        
-        self.id = shipid
-        self.uid = uid
-        
-        self.lat = lat
-        self.lon = lon
-        self.sst = sst
-        self.mat = mat
-        self.year = year
-        self.month = month
-        self.day = day
-        self.hour = hour
-        
-        if calendar.isleap(year):
-            month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        else:
-            month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-        if (hour != None and 
-            day != None and 
-            day > 0 and day <= month_lengths[month-1]):
-            self.rounded_hour = int(math.floor(hour))
-            self.rounded_minute = int(math.floor(60 * (hour-self.rounded_hour)))
-            self.dt = datetime(year, month, int(day), \
-                               self.rounded_hour, self.rounded_minute)
-        else:
-            self.rounded_hour = None
-            self.rounded_minute = None        
-            self.dt = None
-
-        self.ds = icoads_ds
-        self.dsi = None
-        if icoads_ds != None:
-            self.dsi = ds_convert[icoads_ds]
-
-        self.vs = icoads_vs
-        self.vsi = None
-        if icoads_vs != None:
-            if year >= 1968:
-                self.vsi = icoads_vs * 5.0 - 2.0
-            else:
-                self.vsi = icoads_vs * 3.0 - 1.0
-            if icoads_vs == 0:
-                self.vsi = 0.0
-
-        self.pt = None
-        self.si = None
-        self.c1 = None
-        self.dck = None
-        self.sid = None
-        
-        self.sst_norm = None
-        self.sst_anomaly = None
-
-        self.mat_norm = None
-        self.mat_anomaly = None
-
-#basic QC
-        self.bad_date = 0
-        self.blacklist = 0
-        self.bad_position = 0
-        self.bad_time = 0
-        self.bad_track = 0
-        self.land = 0
-        self.day_check = 0
-        self.fewsome_check = 0
-
-        self.no_sst = 0
-        self.sst_below_freezing = 0
-        self.no_sst_normal = 0
-        self.sst_climatology_fail = 0
-        self.sst_buddy_fail = 0
-
-        self.no_mat = 0
-        self.no_mat_normal = 0
-        self.mat_climatology_fail = 0
-        self.mat_buddy_fail = 0
-        
-        self.new_track_check = 0 
-        self.new_buddy_check = 0 
-        self.bayesian_sst_buddy_check = 0 
-        self.bayesian_mat_buddy_check = 0 
-        self.bayesian_track_check = 0 
-        self.spike_check = 0 
-        self.iquam_spike_check = 0 
-        self.repeated_value = 0 
- 
-        return
-    
-    def getvar(self, var):
-        '''
-        Get variable name
-        
-        :param var: variable name
-        :type var: string
-        :return: variable corresponding to variable name
-        :rtype: depends on variable, float or string
-        '''
-        if var == 'LAT': return self.lat
-        if var == 'LON': return self.lon
-        if var == 'YR': return self.year 
-        if var == 'MO': return self.month
-        if var == 'DY': return self.day
-        if var == 'HR': return self.hour
-        if var == 'SST': return self.sst 
-        if var == 'AT': return self.mat 
-
-        #if var == '': return 
-        
-        return 
-    
-    def getanom(self, var):
-        
-        if var == 'SST': return self.sst_anomaly
-        if var == 'AT':  return self.mat_anomaly
-    
-    def set_qc(self, qc_type, specific_flag, set_value):
-    
-        if qc_type == 'AT':
-            if specific_flag == 'buddy_fail':
-                self.mat_buddy_fail = set_value
-
-        if qc_type == 'SST':
-            if specific_flag == 'buddy_fail':
-                self.sst_buddy_fail = set_value
-#            elif specific_flag == '':
-#                pass
-#            elif specific_flag == '':
-#                pass
-#            elif specific_flag == '':
-#                pass
-
-        return
-
-    def get_qc(self, qc_type, specific_flag):
-    
-        if qc_type == 'AT':
-            if specific_flag == 'buddy_fail':
-                qcvalue = self.mat_buddy_fail
-
-        if qc_type == 'SST':
-            if specific_flag == 'buddy_fail':
-                qcvalue = self.sst_buddy_fail
-#            elif specific_flag == '':
-#                pass
-#            elif specific_flag == '':
-#                pass
-#            elif specific_flag == '':
-#                pass
-
-        return qcvalue
-    
-    @staticmethod
-    def report_from_imma(imma):
-        '''
-        Create a MarineReport from an IMMA report
-        
-        :param x: IMMA report
-        :type x: IMMA report
-        :return: MarineReport created from IMMA report
-        :rtype: MarineReport
-        '''
-        rep = MarineReport(imma.data['ID'],
-                           imma.data['LAT'], imma.data['LON'], 
-                           imma.data['SST'], imma.data['AT'], 
-                           imma.data['YR'], imma.data['MO'], 
-                           imma.data['DY'], imma.data['HR'], 
-                           imma.data['DS'], imma.data['VS'], 
-                           str(imma.data['UID']))
-
-        rep.pt = imma.data['PT']
-        rep.si = imma.data['SI']
-        rep.c1 = imma.data['C1']
-        rep.dck = imma.data['DCK']
-        rep.sid = imma.data['SID']
-
-        return rep
-
-    @staticmethod
-    def report_from_array(x):
-        '''
-        Create a MarineReport from an array in a very specific order
-        
-        :param x: array containing variables needed to initialise MarineReport
-        :type x: list
-        :return: MarineReport created from input array
-        :rtype: MarineReport
-        '''
-        
-        id = "{:9.9}".format(x[0])
-
-        rep = MarineReport(str(x[0]),
-                           x[1], x[2], 
-                           x[3], x[4], 
-                           x[5], x[6], 
-                           x[7], x[8], 
-                           x[9], x[10], 
-                           str(x[11]))
-
-        rep.pt = x[12]
-        rep.si = x[13]
-        rep.c1 = x[14]
-        rep.dck = x[15]
-        rep.sid = x[16]
-        
-        rep.setnorm(x[17], x[18])
-
-        return rep
-
-
-    def print_report(self):
-        '''
-        A simple routine to print out the marine report in the old fashioned tenday format 
-        for comparison to earlier versions of the :term:`MDS` QC system.
-        '''
-        #callsign,lat,lon,year,month,day,hour,mat,sst,pressure,
-        #wind,deckid,sourceid,obtype,qc1,qc2,qc3,qc4,qc5
-        #'(a8,12i8,i3,2x,a8,4(x,a8))'
-   
-        mat = self.mat
-        if mat == None:
-            mat = -32768
-        else:
-            mat = round(self.mat * 10)
-        
-        sst = self.sst
-        if sst == None:
-            sst = -32768
-        else:
-            sst = round(self.sst * 10)
-        
-        day = self.day
-        if day == None:
-            day = -32768
-        
-        hur = self.hour
-        if hur == None:
-            hur = -32768
-        else:
-            hur = int(self.hour * 100)
-        
-        sid = self.sid
-        duplicate = 0
-        pressure = -32768
-        obtype = 2
-        if self.pt == 6:
-            obtype = 1
-        elif self.pt == 7:
-            obtype = 0
-        
-        dsvs = 9999
-        if self.ds != None and self.vs != None:
-            dsvs = (self.ds*100+self.vs)
-        
-        lon = round(self.lon*100, 0)
-        if lon > 18000:
-            lon = lon-36000
-        
-        shipid = self.id
-        if shipid == None:
-            shipid = '         '
-        
-        qc_block = "{:d}{:d}{:d}{:d}{:d}{:d}{:d}{:d} "
-        qc_end = "{:d}{:d}{:d}{:d}{:d}{:d}{:d}{:d}\n"
-        
-        repout = "{:8.8}".format(shipid)
-        repout = repout + "{:8d}".format(int(round(self.lat*100, 0)))
-        repout = repout + "{:8d}".format(int(lon))
-        repout = repout + "{:8d}".format(self.year)
-        repout = repout + "{:8d}".format(self.month)
-        repout = repout + "{:8d}".format(day)
-        repout = repout + "{:8d}".format(hur)
-        repout = repout + "{:8d}".format(int(mat))
-        repout = repout + "{:8d}".format(int(sst))
-        repout = repout + "{:8d}".format(pressure)
-        repout = repout + "{:8d}".format(dsvs)
-        repout = repout + "{:8d}".format(self.dck)
-        repout = repout + "{:8d}".format(sid)
-        repout = repout + "{:3d}  ".format(obtype)
-        repout = repout + qc_block.format(self.day_check, 
-                                          self.land, 
-                                          self.bad_track, 
-                                          self.bad_time, 
-                                          self.bad_time, 
-                                          self.bad_position, 
-                                          self.blacklist, 
-                                          duplicate)
-        repout = repout + qc_block.format(self.sst_buddy_fail, 
-                                          self.sst_climatology_fail, 
-                                          self.no_sst_normal, 
-                                          self.sst_below_freezing, 
-                                          self.no_sst, 
-                                          0, 0, 0)
-        repout = repout + qc_block.format(self.mat_buddy_fail, 
-                                          self.mat_climatology_fail, 
-                                          self.no_mat_normal, 
-                                          0,
-                                          self.no_mat,
-                                          0, 0, 0)
-        repout = repout + qc_block.format(0, 0, 0, 0, 0, 0, 0, 0)
-        repout = repout + qc_end.format(self.fewsome_check, 
-                                        self.new_track_check, 
-                                        self.new_buddy_check, 
-                                        self.bayesian_sst_buddy_check, 
-                                        self.bayesian_mat_buddy_check, 
-                                        0, 0, 0)
-        
-        return repout
-
-    def __sub__(self, other):
-        '''
-        Subtracting one :class:`.MarineReport` from another will yield the distance and the time difference 
-        between the two reports.
-        
-        Usage: distance, timediff = report_a - report_b
-        '''
-        distance = sph.sphere_distance(self.lat, self.lon,
-                                       other.lat, other.lon)
-
-        timediff = time_difference(other.year, other.month, 
-                                   other.day, other.hour,
-                                   self.year, self.month, 
-                                   self.day, self.hour)
-        speed = None
-        if timediff != 0:
-            speed = distance/timediff
-        else:
-            timediff = 0.0
-            speed = distance
-
-        course = sph.course_between_points(other.lat, other.lon, 
-                                           self.lat, self.lon)
-
-
-        return speed, distance, course, timediff
-
-    def __eq__(self, other):
-        if self.id == other.id and self.dt == other.dt:
-            return True
-        else:
-            return False
-    
-    def __gt__(self, other):
-        if self.id > other.id:
-            return True
-        if self.dt != None and other.dt != None and self.dt > other.dt:
-            return True
-        else:
-            return False
-
-    def __ge__(self, other):
-        if self.id > other.id:
-            return True
-        if self.dt >= other.dt:
-            return True
-        else:
-            return False
-    
-    def __le__(self, other):
-        if self.id < other.id:
-            return True
-        if self.dt <= other.dt:
-            return True
-        else:
-            return False
-
-    def setnorm(self, sst_climav, mat_climav):
-
-        '''
-        Assign a climatological average to this report
-        
-        :param sst_climav: climatological SST in degC
-        :param mat_climav: climatological MAT in degC
-        :type sst_climav: float
-        :type mat_climav: float
-        
-        A climatological average is assigned and, if non-missing, an anomaly is calculate and stored internally.
-        '''
-        
-        self.sst_norm = sst_climav
-        if sst_climav != None and self.sst != None:
-            self.sst_anomaly = self.sst - sst_climav
-        
-        self.mat_norm = mat_climav
-        if mat_climav != None and self.mat != None:
-            self.mat_anomaly = self.mat - mat_climav
-
-        return
-
-    def printqc(self):
-
-        '''
-        Print current QC flags for the MarineReport
-        '''
-
-        print 'BASE QC', self.bad_date, self.blacklist, self.bad_position, \
-        self.bad_time, self.bad_track, self.land, self.day_check, \
-        ' SST QC', self.no_sst, self.no_sst_normal, self.sst_climatology_fail, \
-        self.sst_buddy_fail,self.sst_below_freezing, \
-        ' MAT QC', self.no_mat, self.no_mat_normal, self.mat_climatology_fail, \
-        self.mat_buddy_fail    
-
-        return
-    
-    def shift_day(self, shift):
-        """
-        Shift the day of the report forward or back one day.
-        
-        :param shift: set to 1 or -1 to shift forward or backward a day.
-        :type shift: integer
-        
-        This is a simple function to push a day forward or backward exactly one day, 
-        keeping everything else constant. This is necessary because some observations 
-        in ICOADS are in the wrong day. This particularly affects Deck 201 and sundry 
-        observations close to the dateline.                
-        """
-        assert shift == -1 or shift == 1
-        
-        mls = month_lengths(self.year)
-        
-        self.day += shift
-        if self.day <= 0:
-            self.month -= 1
-            if self.month <= 0:
-                self.year -= 1
-                self.month = 12
-            self.day += mls[self.month-1]
-            
-        if self.day > mls[self.month-1]:
-            self.month += 1
-            if self.month > 12:
-                self.year += 1
-                self.month = 1
-            self.day = 1
-
-#recompute dt
-        if (self.hour != None and 
-            self.day != None and 
-            self.day > 0 and self.day <= mls[self.month-1]):
-            self.rounded_hour = int(math.floor(self.hour))
-            self.rounded_minute = int(math.floor(60 * (self.hour-self.rounded_hour)))
-            self.dt = datetime(self.year, self.month, int(self.day), \
-                               self.rounded_hour, self.rounded_minute)
-        else:
-            self.rounded_hour = None
-            self.rounded_minute = None        
-            self.dt = None
-
-class ExtendedMarineReport(MarineReport):
-
-    """
-    The ExtendedMarineReport is just like a regular marine report 
-    except it has a new attribute, ext. ext is just a dictionary 
-    which can be accessed by a number of predefined keys. Its 
-    intended for use in track checking and other QC tests where 
-    reports are organised into voyages.
-    """
-
-    def __init__(self, shipid, lat, lon, sst, mat, year, \
-                 month, day, hour, icoads_ds, icoads_vs, uid):
-        
-        MarineReport.__init__(self, shipid, lat, lon, sst, mat, year, \
-                 month, day, hour, icoads_ds, icoads_vs, uid)
-        
-        self.ext_var = ['speed', 'alt_speed', 
-                        'course', 'alt_course', 
-                        'distance', 'alt_distance', 
-                        'time_diff']
-        self.ext = {}
-        for v in self.ext_var:
-            self.ext[v] = None
-
-    
-    @staticmethod
-    def report_from_imma(imma):
-        '''
-        Create a MarineReport from an IMMA report
-        
-        :param x: IMMA report
-        :type x: IMMA report
-        :return: MarineReport created from IMMA report
-        :rtype: MarineReport
-        '''
-        rep = ExtendedMarineReport(imma.data['ID'],
-                                   imma.data['LAT'], imma.data['LON'], 
-                                   imma.data['SST'], imma.data['AT'], 
-                                   imma.data['YR'], imma.data['MO'], 
-                                   imma.data['DY'], imma.data['HR'], 
-                                   imma.data['DS'], imma.data['VS'], 
-                                   str(imma.data['UID']))
-
-        rep.pt = imma.data['PT']
-        rep.si = imma.data['SI']
-        rep.c1 = imma.data['C1']
-        rep.dck = imma.data['DCK']
-        rep.sid = imma.data['SID']
-
-        return rep
-
-    @staticmethod
-    def report_from_array(x):
-        '''
-        Create a MarineReport from an array in a very specific order
-        
-        :param x: array containing variables needed to initialise MarineReport
-        :type x: list
-        :return: MarineReport created from input array
-        :rtype: MarineReport
-        '''
-        rep = ExtendedMarineReport(str(x[0]),
-                                   x[1], x[2], 
-                                   x[3], x[4], 
-                                   x[5], x[6], 
-                                   x[7], x[8], 
-                                   x[9], x[10], 
-                                   str(x[11]))
-
-        rep.pt = x[12]
-        rep.si = x[13]
-        rep.c1 = x[14]
-        rep.dck = x[15]
-        rep.sid = x[16]
-        
-        rep.setnorm(x[17], x[18])
-
-        return rep
-
-class Voyage:
-    """
-    A Voyage is a class which is effectively a list of ExtendedMarineReports. 
-    There are a number of methods which can be used to do things like 
-    sort the reports into time order, calculate speeds from the reported 
-    positions and so on.
-    """
-    def __init__(self):
-        self.reps = []
-        
-    def sort(self):
-        """
-        Sorts the reports into time order
-        """
-        self.reps.sort()
-        #then recalculate times, speeds etc.
-        if len(self.reps) > 1:
-            for i in range(1, len(self.reps)):
-                shpspd, shpdis, shpdir, tdiff = self.reps[i] - self.reps[i-1]
-                self.reps[i].ext['speed'] = shpspd
-                self.reps[i].ext['course'] = shpdir
-                self.reps[i].ext['distance'] = shpdis
-                self.reps[i].ext['time_diff'] = tdiff
-        
-
-    def get_latitudes(self):
-        """
-        Return a list containing the latitudes of all the reports
-        
-        :return: list of latitudes of the reports
-        :rtype: float
-        """
-        lats = []
-        for i in range(0, len(self.reps)):
-            lats.append(self.reps[i].lat)
-        return lats
-    
-    def get_longitudes(self):
-        """
-        Return a list containing the longitudes of all the reports
-        
-        :return: list of longitudes of the reports
-        :rtype: float
-        """
-        lats = []
-        for i in range(0, len(self.reps)):
-            lats.append(self.reps[i].lon)
-        return lats
-    
-    def get_speed(self):
-        """
-        Return a list containing the speeds of all the reports as 
-        estimated from the positions of consecutive reports
-        
-        :return: list of speeds in km/hr
-        :rtype: float
-        """
-        spd = []
-        for i in range(0, len(self.reps)):
-            spd.append(self.reps[i].ext['speed'])
-        return spd
-    
-    def meansp(self):
-        """
-        Calculate the mean speed of the voyage based on speeds 
-        estimated from the positions of consecutive reports.
-        
-        :return: mean voyage speed
-        :rtype: float
-        """
-        spd = self.get_speed()
-
-        if len(spd) > 1:
-            amean = np.mean(spd[1:])
-        else:
-            amean = None
-
-        return amean
-
-    def add_report(self, rep):
-        """
-        Add a single ExtendedMarineReport to the voyage
-        
-        :param rep: ExtendedMarineReport to be added to the Voyage.
-        :type rep: ExtendedMarineReport
-        
-        The report is added to the end of the Voyage and the ExtendedMarineReport 
-        variables like speed and course are computed from the positions of the 
-        report and the one that precedes it.
-        """
-        self.reps.append(rep)
-
-        if len(self.reps) > 1:
-            i = len(self.reps)
-            shpspd, shpdis, shpdir, tdiff = self.reps[i-1] - self.reps[i-2]
-            self.reps[i-1].ext['speed'] = shpspd
-            self.reps[i-1].ext['course'] = shpdir
-            self.reps[i-1].ext['distance'] = shpdis
-            self.reps[i-1].ext['time_diff'] = tdiff
-
-    def calc_alternate_speeds(self):
-        """
-        The speeds and courses can also be calculated using alternating reports
-        """
-        if len(self.reps) > 2:
-            for i in range(1, len(self.reps)-1):
-                shpspd, shpdis, shpdir, tdiff = self.reps[i+1] - self.reps[i-1]
-                self.reps[i].ext['alt_speed'] = shpspd
-                self.reps[i].ext['alt_course'] = shpdir
-                self.reps[i].ext['alt_distance'] = shpdis
-                self.reps[i].ext['alt_time_diff'] = tdiff
-
-    def last_rep(self):
-        """
-        Get the last report in the Voyage
-        
-        :return: last ExtendedMarineReport in the Voyage
-        :rtype: ExtendedMarineReport
-        """
-        nreps = len(self.reps)
-        return self.reps[nreps-1]
-                
-    def predict_next_point(self, timediff):
-        """
-        The latitude and longitude of the next point are estimated based on 
-        an extrapolation of the great circle drawn between the previous two 
-        points
-        
-        :param timediff: predict the latitude and longitude after this timediff has elapsed.
-        :type timediff: float
-        """
-        assert timediff >= 0
-        nreps = len(self.reps)
-        
-        assert nreps > 0, "Need at least one report in the voyage to predict"
-       
-        if nreps == 1:
-            return self.reps[0].lat, self.reps[0].lon
-
-        if abs(self.reps[nreps-1].ext['time_diff']) < 0.00001:
-            return self.reps[nreps-1].lat, self.reps[nreps-1].lon
-            
-        #take last-but-one and last point. Calculate a speed and 
-        #great circle course from them.
-        course = self.reps[nreps-1].ext['course']
-        distance = (self.reps[nreps-1].ext['speed'] * 
-                    (self.reps[nreps-1].ext['time_diff']+timediff))
-
-        lat1 = self.reps[nreps-2].lat
-        lon1 = self.reps[nreps-2].lon
-     
-        lat, lon = sph.lat_lon_from_course_and_distance(lat1, lon1, 
-                                                        course, distance)
-
-        return lat, lon
-        
-    def find_repeated_values(self, threshold=0.7, intype='SST'):
-        """
-        Find cases where more than a given proportion of SSTs have the same value
-        
-        :param threshold: the maximum fraction of observations that can have a given value
-        :param intype: either 'SST' or 'MAT' to find repeated SSTs or MATs
-        :type threshold: float
-        :type intype: string
-        
-        This method goes through a voyage and finds any cases where more than a threshold fraction of 
-        the observations have the same SST or NMAT value.
-        """
-        
-        assert threshold >= 0.0 and threshold <= 1.0
-        assert intype in ['SST','MAT']
-        
-        if intype == 'SST':
-            valcount = {}
-            allcount = 0
-                    
-            for i, rep in enumerate(self.reps):
-                if rep.sst != None:
-                    allcount += 1
-                    if str(rep.sst) in valcount:
-                        valcount[str(rep.sst)].append(i)
-                    else:
-                        valcount[str(rep.sst)]  = [i]
-                        
-            if allcount > 20:
-                for key in valcount:
-                    if float(len(valcount[key]))/float(allcount) > threshold:
-                        for i in valcount[key]:
-                            self.reps[i].repeated_value = 1
-        
-        if intype == 'MAT':
-            valcount = {}
-            allcount = 0
-                    
-            for i, rep in enumerate(self.reps):
-                if rep.mat != None:
-                    allcount += 1
-                    if str(rep.mat) in valcount:
-                        valcount[str(rep.mat)].append(i)
-                    else:
-                        valcount[str(rep.mat)]  = [i]
-                        
-            if allcount > 20:
-                for key in valcount:
-                    if float(len(valcount[key]))/float(allcount) > threshold:
-                        for i in valcount[key]:
-                            self.reps[i].repeated_value = 1
-                            
-
-        return 
-
-def get_arguments(opts):
-    """
-    This is a simple function to parse the arguments passed to various of the QC routines
-    
-    :param opts: list of options
-    :type opts: list of strings
-    :return: name of input file, first year, last year, first month in first year, last month in last year
-    :rtype: string, integer, integer, integer, integer
-    """
-    inputfile = 'configuration.txt'
-    month1 = 1
-    month2 = 12
-    year1 = -999
-    year2 = -999
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print 'test.py -i <inputfile> -o <outputfile>'
-            sys.exit()
-        elif opt in ("-i", "--ifile"):
-            inputfile = arg
-        elif opt in ("-x", "--year1"):
-            try:
-                year1 = int(arg)
-            except:
-                sys.exit("Failed: year1 not an integer")
-        elif opt in ("-y", "--year2"):
-            try:
-                year2 = int(arg)
-            except:
-                sys.exit("Failed: year2 not an integer")
-        elif opt in ("-m", "--month1"):
-            try:
-                month1 = int(arg)
-            except:
-                sys.exit("Failed: month1 not an integer")
-        elif opt in ("-n", "--month2"):
-            try:
-                month2 = int(arg)
-            except:
-                sys.exit("Failed: month2 not an integer")
-
-    assert year1 != -999 and year2 != -999, "Year not specified."
-
-    return inputfile, year1, year2, month1, month2
-        
-def get_config(filename='configuration.txt'):
+def season(month):
     '''
-    Get the contents of a configuration file
+    Return short season name for given month, None for months like 13 that do not exist
     
-    :param filename: name and location of the file
-    :type filename: str
-    :return: dictionary containing the id of the config variable (key) and its value
-    :rtype: dictionary
+    :param month: month
+    :type month: integer
+    
+    :return: DJF, MAM, JJA, or SON or None if the input month is non-existent (e.g. 13)
+    :rtype: string
     '''
-    config = {}
-    
-    with open(filename, 'rb') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-            config[row[0]] = row[1]
-    
-    assert 'data_base_dir'  in config, "No data base directory specified"
-    assert 'data_base_name' in config, "No data base name specified"
-    assert 'ICOADS_dir'     in config, "No ICOADS directory specified"
-    assert 'SST_climatology'       in config, "No SST climatology specified"
-    assert 'MAT_climatology'       in config, "No MAT climatology specified"
-    assert 'SST_stdev_climatology' in config, "No SST stdev climatology specified"
-    
-    return config
+    if month < 0 or month > 12: return None
+    ssnlist = ['DJF','DJF','MAM','MAM','MAM','JJA','JJA','JJA','SON','SON','SON','DJF']
+    return ssnlist[month-1]
 
 def pentad_to_month_day(p):
     '''
-    Given a pentad number, return the month and day of the first day in the pentad    
+    Given a pentad number, return the month and day of the first day in the pentad
+    
+    :param p: pentad number from 1 to 73
+    :type p: integer
+    
+    :return: month and day of the first day of the pentad
+    :rtype: integer   
     '''
     assert p > 0 and p<74, 'p outside allowed range 1-73 '+str(p)
     m = [1,1,1,1,1,1,1,2,2,2,2,2,
@@ -893,6 +80,7 @@ def which_pentad(inmonth, inday):
     :param inday: day for the day for which we want to calculate the pentad
     :type inmonth: integer
     :type inday: integer
+
     :return: pentad (5-day period) containing input day, from 1 (1 Jan-5 Jan) to 73 (27-31 Dec)
     :rtype: integer
 
@@ -919,6 +107,7 @@ def day_in_year(month, day):
     :param day: day in the month 
     :type month: integer
     :type day: integer
+
     :return: day number in year 1-365
     :rtype: integer
     '''
@@ -1501,6 +690,25 @@ def no_normal_check(inclimav):
         result = 1
     return result
 
+def hard_limit(val, limits):
+    '''
+    Check if a value is outside specified limits
+    
+    :param val: value to be tested
+    :param limits: two membered list of lower and upper limit
+    :type val: float
+    :type limits: list of floats
+    
+    :return: 1 if the input is outside the limits, 0 otherwise
+    :return type: integer 
+    '''
+    assert limits[1]>limits[0], 'limits are not well specified'
+    if val is None: return 1
+    result = 1
+    if limits[0] <= val <= limits[1]:
+        result = 0
+    return result
+
 def supersat_check(invaltd, invalt):
     '''
     Check if a valid dewpoint temperature is 
@@ -1717,7 +925,7 @@ def p_gross(p0, Q, R_hi, R_lo, x, mu, sigma):
     :return: probability of gross error given an observed value
     :rtpye: float
     """
-    assert p0 > 0, "p0 <= 0 "+str(p0)
+    assert p0 >= 0, "p0 <= 0 "+str(p0)
     assert p0 <= 1, "p0 > 1 "+str(p0) 
     assert Q > 0.0, "Q <= 0 "+str(Q)
     assert R_hi > R_lo, "Limits not ascending R_lo "+str(R_lo)+" > R_hi "+str(R_hi)
@@ -1729,84 +937,10 @@ def p_gross(p0, Q, R_hi, R_lo, x, mu, sigma):
                (  p0   * p_data_given_gross(Q, R_hi, R_lo) +
                 (1-p0) * p_data_given_good(x, Q, R_hi, R_lo, mu, sigma)))
 
-    if pgross > 0:
-        pass
-    else:
-        print p0, pgross, x, Q, R_hi, R_lo, mu, sigma
-
-    assert pgross > 0.0, pgross
+    assert pgross >= 0.0, pgross
     assert pgross <= 1.0, pgross
 
     return pgross
-    
-def split_generic_callsign(invoyage):
-    '''
-    Prototype function to identify when a callsign is being used by multiple ships 
-    and to split the observations into pseudo IDs that each represents a different ship
-    
-    :param invoyage: a voyage object containing marine reports
-    :type invoyage: Voyage
-    :return: list of separate Voyages that the input Voyage has been split into.
-    :return type: Voyage
-    
-    The function works by comparing consecutive observations in the input lists 
-    and calculating the implied speed. If it is greater than 40 knots, a new ship 
-    is generated. Each subsequent observation is assigned to the closest ship 
-    unless the speed exceed 40 knots. If it does, a new ship is generated. 
-    '''
-
-    knots_conversion     = 0.539957
-    
-    if len(invoyage.reps) <= 0:
-        return []
-    
-    result = [1]
-    n_ships = 1
-
-    outvoyages = [Voyage()]
-    outvoyages[0].add_report(invoyage.reps[0])
-    
-    ntimes = len(invoyage.reps)
-
-    if ntimes > 1:
-        for i in range(1, ntimes):
-            #calculate speeds from last position for each ship
-            speeds = []
-            distances = []
-            for j in range(0, n_ships):
-                
-                last_rep = outvoyages[j].last_rep()
-                
-                speed, distance, course, timediff = invoyage.reps[i] - last_rep
-                
-                #calc predicted position and distance of new ob from predicted position
-                pred_lat, pred_lon = outvoyages[j].predict_next_point(timediff)
-                d = sph.sphere_distance(invoyage.reps[i].lat, 
-                                        invoyage.reps[i].lon, 
-                                        pred_lat, 
-                                        pred_lon)
-            
-                distances.append(d)
-                if timediff != 0:
-                    speeds.append(speed)
-                else:
-                    speeds.append(10000.)
-                                                     
-            #if all speeds exceed 40 knots then create new ship
-            if min(speeds) > 40.0 / knots_conversion:
-                n_ships = n_ships + 1
-                v = Voyage()
-                v.add_report(invoyage.reps[i])
-                outvoyages.append(v)
-                result.append(n_ships)
-
-            #else ob is assigned to ship whose predicted location is closest to the ob
-            else:
-                winner = distances.index(min(distances))
-                outvoyages[winner].add_report(invoyage.reps[i])
-                result.append(winner+1)
-    
-    return outvoyages
 
 def angle_diff(angle1, angle2):
     '''
@@ -2001,13 +1135,12 @@ def dayinyear(year, month, day):
     assert month >= 1 and month <= 12
     assert day >= 1
     
+    month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if calendar.isleap(year):
-        month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    else:
-        month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        month_lengths[1] = 29        
 
     assert day <= month_lengths[month-1], "Day out of range "+str(day)
-    
+
     result = day
     if month > 1:
         result = result + sum(month_lengths[0:month-1])
@@ -2393,87 +1526,6 @@ def id_is_generic(inid, inyear):
     if inid in generic_ids:
         result = True
     return result
-
-def calc_sst_gradients(inreps):
-    
-    '''
-    calculate SST changes along a route and the distance travelled 
-    and the time elapsed between observations.
-    '''
-    
-    nobs = len(inreps)
-    
-    if nobs > 0:
-    
-        sst_change = [None]
-        temporal_differences = [None]
-        spatial_differences = [None]
-
-        for i in range(1, nobs):
-                
-            sst_difference = inreps[i].sst - inreps[i-1].sst
-            distance = sph.sphere_distance(inreps[i-1].lat, 
-                                           inreps[i-1].lon, 
-                                           inreps[i].lat, 
-                                           inreps[i].lon)
-            timdif = time_difference(inreps[i-1].year, 
-                                     inreps[i-1].month, 
-                                     inreps[i-1].day, 
-                                     inreps[i-1].hour,
-                                     inreps[i].year,   
-                                     inreps[i].month,   
-                                     inreps[i].day,   
-                                     inreps[i].hour)
-            
-            temporal_differences.append(timdif)
-            spatial_differences.append(distance)
-            sst_change.append(sst_difference)
-
-    else:
-        sst_change = []
-        temporal_differences = []
-        spatial_differences = []
-
-    return sst_change, spatial_differences, temporal_differences
-
-def iquam_spike_check(inreps):
-
-    '''
-    spike check as defined in Xu and Ignatov 2014 section 2b(4): SST SPIKE CHECK.
-    '''
-    
-    max_space_gradient = 0.5 #K/km maximum SST gradient in space gd
-    max_time_gradient = 1.0 #K/hr maximum SST gradient in time gt
-    delta_t = 2.0 #K deviation associated with ship observations
-    #delta_T = 1.0 #K deviation associated with tropical moorings
-    #delta_T = 1.0 #K deviation associated with drifters
-    #delta_T = 1.6 #K deviation associated with coastal moorings
-
-    qcs = [0]
-
-#generic ids get a free pass on this check 
-    if id_is_generic(inreps[0].id, inreps[0].year):
-        qcs = []
-        for rep in inreps:
-            qcs.append(0)
-        return qcs
-
-    sst_change, spatial_differences, temporal_differences = \
-    calc_sst_gradients(inreps)
-
-    ntime = len(sst_change)
-    for i in range(1, ntime):
-
-        threshold = max([delta_t, 
-                         max_space_gradient * spatial_differences[i], 
-                         max_time_gradient * temporal_differences[i]])
-
-        if sst_change[i] > threshold:
-            qcs.append(1)
-        else:
-            qcs.append(0)
-
-    return qcs
 
 def last_month_was(year, month):
     '''

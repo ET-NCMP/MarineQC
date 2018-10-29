@@ -3,11 +3,15 @@ import math
 
 '''
 The spherical geometry module is a simple collection of calculations on a sphere
+Sourced from http://williams.best.vwh.net/avform.htm
 '''
+earths_radius = 6371.0088
+radians_per_degree = np.pi / 180.
 
 def sphere_distance(lat1,lon1,lat2,lon2):
     '''
-    Calculate the great circle distance between two points on the sphere designated by their latitude and longitude
+    Calculate the great circle distance between two points on the sphere designated 
+    by their latitude and longitude
     
     :param lat1: latitude of first point
     :param lon1: longitude of first point 
@@ -25,12 +29,16 @@ def sphere_distance(lat1,lon1,lat2,lon2):
     multiplying that by the radius of the Earth. The angular distance calculation is handled by 
     another function.
     '''
-    earths_radius = 6400.0
+    
     delta = angular_distance(lat1,lon1,lat2,lon2)*earths_radius
     return delta
 
 def angular_distance(lat1,lon1,lat2,lon2):
     '''
+    calculate distance between two points on a sphere
+    input latitudes and longitudes should be in degrees
+    output is in radians
+    
     :param lat1: latitude of first point
     :param lon1: longitude of first point 
     :param lat2: latitude of second point
@@ -42,15 +50,11 @@ def angular_distance(lat1,lon1,lat2,lon2):
     :return: return the angular great circle distance between the two points in radians
     :rtype: float
     '''
-#calculate distance between two points on a sphere
-#input latitudes and longitudes should be in degrees
-#output is in radians
+
     assert lat1 != None and not(math.isnan(lat1))
     assert lon1 != None and not(math.isnan(lon1))
     assert lat2 != None and not(math.isnan(lat2))
     assert lon2 != None and not(math.isnan(lon2))
-
-    radians_per_degree = np.pi / 180.
 
 #convert degrees to radians
     lat1 = lat1 * radians_per_degree
@@ -72,6 +76,9 @@ def angular_distance(lat1,lon1,lat2,lon2):
 
 def lat_lon_from_course_and_distance(lat1, lon1, tc, d):
     '''
+    calculate a latitude and longitude given a starting point, course (in radian) and 
+    angular distance (also in radians) #http://williams.best.vwh.net/avform.htm#LL
+    
     :param lat1: latitude of first point in degrees
     :param lon1: longitude of first point in degrees
     :param tc: true course measured clockwise from north in degrees
@@ -83,14 +90,12 @@ def lat_lon_from_course_and_distance(lat1, lon1, tc, d):
     :return: return the new latitude and longitude
     :rtype: float
     '''
-#calculate a latitude and longitude given a starting point, course (in radian) and angular distance (also in radians)
-#http://williams.best.vwh.net/avform.htm#LL
-    radians_per_degree = np.pi / 180.
+
     lat1 = lat1 * radians_per_degree
     lon1 = lon1 * radians_per_degree
     tcr = tc * radians_per_degree
 
-    dr = d/6400.
+    dr = d / earths_radius
 
     lat =np.arcsin(np.sin(lat1)*np.cos(dr)+np.cos(lat1)*np.sin(dr)*np.cos(tcr))
     dlon=np.arctan2(np.sin(tcr)*np.sin(dr)*np.cos(lat1),np.cos(dr)-np.sin(lat1)*np.sin(lat))
@@ -103,6 +108,9 @@ def lat_lon_from_course_and_distance(lat1, lon1, tc, d):
 
 def course_between_points(lat1,lon1,lat2,lon2):
     '''
+    given two points find the initial true course at point1
+    inputs are in degrees and output is in degrees
+    
     :param lat1: latitude of first point in degrees
     :param lon1: longitude of first point in degrees
     :param lat2: latitude of second point in degrees
@@ -114,11 +122,9 @@ def course_between_points(lat1,lon1,lat2,lon2):
     :return: return the initial true course in degrees at point one along the great circle between point one and point two
     :rtype: float
     '''
-#given two points find the initial true course at point1
-#inputs are in degrees and output is in degrees
-    d = angular_distance(lat1,lon1,lat2,lon2)
-    radians_per_degree = np.pi / 180.
 
+    d = angular_distance(lat1,lon1,lat2,lon2)
+    
     if d != 0:
     
         lat1 = lat1 * radians_per_degree
@@ -163,6 +169,9 @@ def course_between_points(lat1,lon1,lat2,lon2):
 
 def intermediate_point(lat1,lon1,lat2,lon2,f):
     '''
+    given two lat,lon point find the latitude and longitude that are a fraction f
+    of the great circle distance between them http://williams.best.vwh.net/avform.htm#Intermediate
+
     :param lat1: latitude of first point in degrees
     :param lon1: longitude of first point in degrees
     :param lat2: latitude of second point in degrees
@@ -176,16 +185,13 @@ def intermediate_point(lat1,lon1,lat2,lon2,f):
     :return: return the latitude and longitude of the point a fraction f along the great circle between the first and second points.
     :rtype: float
     '''
-#given two lat,lon point find the latitude and longitude that are a fraction f
-#of the great circle distance between them
-#http://williams.best.vwh.net/avform.htm#Intermediate
+
     assert f <= 1.0,f
     
     d = angular_distance(lat1,lon1,lat2,lon2)
 
     if d != 0.0:
 #convert degrees to radians
-        radians_per_degree = np.pi / 180.
         lat1 = lat1 * radians_per_degree
         lon1 = lon1 * radians_per_degree
         lat2 = lat2 * radians_per_degree

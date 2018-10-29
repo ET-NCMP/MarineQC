@@ -11,11 +11,61 @@ Improvement on single reports and collections of reports.
 import qc
 import math
 import numpy as np
-import Climatology as clim
 from datetime import datetime
 import spherical_geometry as sph
-import qc_new_track_check as tc
+import track_check as tc
 import CalcHums
+
+def datestring(year, month, day):
+    '''
+    Write year month and day in iso format
+    
+    :param year: Year
+    :param month: Month
+    :param day: Day
+    :type year: integer
+    :type month: integer
+    :type day:  integer
+    
+    :return: String containing ISO format year month day
+    :rtype: string
+    '''
+    syear = str(year)
+    smonth = str(month)
+    sday = str(day)
+    try:
+        outstr = datetime.strptime(syear+' '+smonth+' '+sday, '%Y %m %d').date().isoformat()
+    except:
+        outstr = '0000-00-00' 
+    return outstr
+
+def tostring(variable):
+    '''
+    print a variable as string, or \N if missing
+    '''
+    repout = ""
+    if variable != None:
+        repout = str(variable)
+    else:
+        repout = "\N"
+    return repout
+
+def pvar(var, mdi, scale):
+    '''
+    Convert a variable to a rounded integer
+    
+    :param var: the variable to be scaled and rounded
+    :param mdi: the value to set the variable to if missing or None
+    :param scale: the factor by which to scale the number before rounding
+    :type var: float
+    :type mde: integer
+    :type scale: integer
+    '''
+    if var == None:
+        ret = mdi
+    else:
+        ret = round(var * scale)
+    return ret
 
 def get_threshold_multiplier(total_nobs, nob_limits, multiplier_values):
 
@@ -193,9 +243,9 @@ class QC_filter:
         nobs = len(reps)
         
         for i in range(0, nobs):
-
-            rep = reps.pop(0)
             
+            rep = reps.pop(0)
+                      
             if self.test_report(rep) == 0:
                 passes.append(rep)
             else:
@@ -263,7 +313,7 @@ class MarineReport:
         self.calculate_dt()
         self.calculate_dsi_vsi()
 
-        self.special_qc_types = ['POS','SST','AT','DPT']
+        self.special_qc_types = ['POS', 'SST', 'AT', 'DPT', 'SLP']
 
     def lat(self):
         '''
@@ -282,7 +332,7 @@ class MarineReport:
 
     def calculate_dsi_vsi(self):
         '''
-        Convert ICOADS DS and VS to meaningful units, in this case degrees and knots(?)
+        Convert ICOADS DS and VS to meaningful units, in this case degrees and knots
         '''
         ds_convert = [0, 45, 90, 135, 180, 225, 270, 315, 360, None]
      
@@ -538,7 +588,7 @@ class MarineReport:
         :type varname: string
         ''' 
         self.data[varname] = varvalue
-        if varname in ['YR','DY','HR']:
+        if varname in ['YR', 'DY', 'HR']:
             self.calculate_dt()
 
     def getvar(self, varname):
@@ -597,15 +647,21 @@ class MarineReport:
         else:
             return 9
   
-    def super_saturated(self):
-
-        if (self.getvar('AT') == self.getvar('DPT') and 
+    def saturated(self):
+        '''
+        Quick check to see if the air is saturate 
+        i.e. Dew Point Temperature equals Air Temperature
+        
+        :return: True if the air is saturated, False otherwise
+        :rtype: boolean
+        '''
+        if (self.getvar('DPT') == self.getvar('AT') and 
             self.getvar('AT') != None and 
             self.getvar('DPT') != None):
             return True
         else: 
             return False 
-   
+
     def printvar(self, var):
         '''Print a variable substituting -32768 for Nones'''
         if var in self.data:
@@ -637,7 +693,8 @@ class MarineReport:
         sstanom = int(pvar(self.getanom('SST'), -32768,  100))
 
         slp     = int(pvar(self.getvar('SLP'),    -32768,  10))
-# Added vars for humidity variables and anomalies (anoms set to 0 for now until we sort out clims)
+# Added vars for humidity variables and anomalies 
+#(anoms set to 0 for now until we sort out clims)
 
         dpt     = int(pvar(self.getvar('DPT'),    -32768,  10))
         dptanom = int(pvar(self.getanom('DPT'), -32768,  100))
@@ -753,7 +810,7 @@ class MarineReport:
         '''
         A simple (ha ha) routine to print out the marine report in old-fashioned fixed-width ascii style.
         '''
-        
+
         day = int(pvar(self.getvar('DY'),  -32768,   1))
         hur = int(pvar(self.getvar('HR'),  -32768, 100))
 
@@ -832,17 +889,31 @@ class MarineReport:
         return repout
 
     def print_variable_block(self, varnames, header=False):
+        '''
+        Print a block of variables in a standard format
+        
+        :param varnames: name of the variables to be written out
+        :param header: flag to indicate whether to print a header or not
+        :type varnames: list of strings
+        :type header: boolean
+        
+        :return: string containing comma separated QC block
+        :rtype: string
+        '''
         if header:
-            repout = "UID,DATE,PENTAD,"
+            repout = ["UID,DATE,PENTAD,"]
             for var in varnames:
-                repout += var[0]+","
+                repout.append(var[0])
+                repout.append(",")
         else:
-            repout = self.getvar('UID')+","
+            repout = [self.getvar('UID')]
+            repout.append(",")
             
             #ISO date time
-            repout += "" + datestring(self.getvar('YR'),
+            repout.append("" + datestring(self.getvar('YR'),
                                        self.getvar('MO'),
-                                       self.getvar('DY')) + ","
+                                       self.getvar('DY')))
+            repout.append(",")
             #pentad
             try:
                 p = qc.which_pentad(self.getvar('MO'),
@@ -850,54 +921,60 @@ class MarineReport:
             except:
                 p = 0
 
-            repout += str(p) + ","
+            repout.append(str(p))
+            repout.append(",")
 
             for var in varnames:
                 if var[0] == "ID":
                     if self.getvar(var[0]) == None:
-                        repout += tostring(self.getvar(var[0]))+","
+                        repout.append(tostring(self.getvar(var[0])))
+                        repout.append(",")
                     else:
-                        repout += '"'+self.getvar(var[0])+'",'
+                        repout.append('"'+self.getvar(var[0])+'"')
+                        repout.append(",")
                 else:
                     if len(var) > 1: 
-                        repout += tostring(self.getanom(var[0]))+","
+                        repout.append(tostring(self.getanom(var[0])))
+                        repout.append(",")
                     else:   
-                        repout += tostring(self.getvar(var[0]))+","
+                        repout.append(tostring(self.getvar(var[0])))
+                        repout.append(",")
 
 #trim trailing comma off string and add newline
-        repout = repout[:-1]+"\n"       
+        repout = repout[:-1]
+        repout.append("\n")
+        repout = "".join(repout)
         return repout
 
     def print_qc_block(self, blockname, varnames, header=False):
+        '''
+        Print a QC block in a standard format
+        
+        :param blockname: name of the QC block that is being printed out 
+        :param varnames: name of the QC flags to be written out
+        :param header: flag to indicate whether to print a header or not
+        :type blockname: string
+        :type varnames: list of strings
+        :type header: boolean
+        
+        :return: string containing comma separated QC block
+        :rtype: string
+        '''
         if header:
-            repout = "UID,"
+            repout = ["UID,"]
             for var in varnames:
-                repout += var+","
-            repout = repout[:-1]+"\n"
+                repout.append(var)
+                repout.append(",")
         else:
-            repout = self.getvar('UID')+","
+            repout = [self.getvar('UID')]
+            repout.append(",")
             for var in varnames:
-                repout += "{:d},".format(self.get_qc(blockname, var))
-            repout = repout[:-1]+"\n"
+                repout.append("{:d}".format(self.get_qc(blockname, var)))
+                repout.append(",")
+        repout = repout[:-1]
+        repout.append("\n")
+        repout = "".join(repout)
         return repout
-
-def datestring(y,m,d):
-    sy = str(y)
-    sm = str(m)
-    sd = str(d)
-    try:
-        outstr = datetime.strptime(sy+' '+sm+' '+sd, '%Y %m %d').date().isoformat()
-    except:
-        outstr = '0000-00-00' 
-    return outstr
-
-def tostring(variable):
-    repout = ""
-    if variable != None:
-        repout = str(variable)
-    else:
-        repout = "\N"
-    return repout
 
 class MarineReportQC(MarineReport):
     '''
@@ -926,11 +1003,58 @@ class MarineReportQC(MarineReport):
         self.do_base_sst_qc(parameters['SST'])
         self.do_base_mat_qc(parameters['AT'])
         self.do_base_dpt_qc(parameters['DPT'])
+        self.do_base_slp_qc(parameters['SLP'])
+
+#special check for silly values in all humidity-related variables
+#and set DPT hardlimit flag if necessary
+        self.set_qc('DPT', 'hardlimit', 0)
+        for var in ['AT','DPT','SHU','RH']:
+            if qc.hard_limit(self.getvar(var), parameters[var]['hard_limits']) == 1:
+                self.set_qc('DPT', 'hardlimit', 1)
 
         self.do_kate_mat_qc(parameters['AT'])
 
-    def perform_base_sst_qc(self, parameters):
+    def perform_base_dat_qc(self, parameters):
+        '''
+        Run all the base Day Marine Air Temperature QC checks
+        '''         
+        self.do_fix_missing_hour()
+
+        self.is_buoy()
+        self.is_ship()
         
+        self.mat_blacklist()
+        
+        self.do_position_check()
+        self.do_date_check()
+        self.do_time_check()
+        self.do_blacklist()
+        self.do_day_check(parameters['base']['time_since_sun_above_horizon'])
+
+        self.do_base_dat_qc(parameters['DAT'])
+
+    def perform_base_slp_qc(self, parameters):
+        '''
+        Run all the base Sea Level Pressure QC checks
+        '''
+        self.do_fix_missing_hour()
+
+        self.is_buoy()
+        self.is_ship()
+        self.is_deck_780()
+
+        self.do_position_check()
+        self.do_date_check()
+        self.do_time_check()
+        self.do_blacklist()
+        self.do_day_check(parameters['base']['time_since_sun_above_horizon'])
+
+        self.do_base_slp_qc(parameters['SLP'])
+
+    def perform_base_sst_qc(self, parameters):
+        '''
+        Run all the base Sea Surface Temperature QC checks
+        '''
         self.do_fix_missing_hour()
 
         self.is_buoy()
@@ -946,8 +1070,12 @@ class MarineReportQC(MarineReport):
         self.do_base_sst_qc(parameters['SST'])
 
     def do_fix_deck201_zero_hour(self):
-#Deck 201 GMT midnights are assigned to the wrong day, see Carella, Kent, Berry 2015 Appendix A3 
-#Reports from deck 201 before 1899 taken at the GMT midnight were moved one day before the reported date.
+        '''
+        Deck 201 GMT midnights are assigned to the wrong day, 
+        see Carella, Kent, Berry 2015 Appendix A3 
+        Reports from deck 201 before 1899 taken at the GMT midnight 
+        were moved one day before the reported date.
+        '''
         if (self.getvar('DCK') == 201 and 
             self.getvar('YR') < 1899 and 
             self.getvar('HR') == 0):
@@ -1018,6 +1146,16 @@ class MarineReportQC(MarineReport):
                                 self.lon(), 
                                 self.getvar('PT')))
 
+    def do_base_slp_qc(self, parameters):
+        '''
+        Run the base SLP QC checks, non-missing, climatology check and check for normal
+        '''
+        assert  'maximum_anomaly'in parameters       
+        self.set_qc('SLP', 'noval', qc.value_check(self.getvar('SLP')))
+        self.set_qc('SLP', 'clim',  qc.climatology_check(self.getvar('SLP'), self.getnorm('SLP'),
+                                                         parameters['maximum_anomaly']))
+        self.set_qc('SLP', 'nonorm', qc.no_normal_check(self.getnorm('SLP')))
+
     def do_base_sst_qc(self, parameters):
         '''
         Run the base SST QC checks, non-missing, above freezing, climatology check 
@@ -1038,6 +1176,7 @@ class MarineReportQC(MarineReport):
                                                          parameters['maximum_anomaly']))
 
         self.set_qc('SST', 'nonorm', qc.no_normal_check(self.getnorm('SST')))
+        self.set_qc('SST', 'hardlimit', qc.hard_limit(self.getvar('SST'), parameters['hard_limits']))
 
     def do_base_mat_qc(self, parameters):
         '''
@@ -1050,12 +1189,27 @@ class MarineReportQC(MarineReport):
                                                        self.getnorm('AT'), 
                                                        parameters['maximum_anomaly']))
         self.set_qc('AT', 'nonorm', qc.no_normal_check(self.getnorm('AT')))
+        self.set_qc('AT', 'hardlimit', qc.hard_limit(self.getvar('AT'), parameters['hard_limits']))
+
+    def do_base_dat_qc(self, parameters):
+        '''
+        Run the base DAT QC checks, non-missing, climatology check and check for normal etc.
+        '''
+        assert  'maximum_anomaly'in parameters       
+
+        self.set_qc('DAT', 'noval', qc.value_check(self.getvar('DAT')))
+        self.set_qc('DAT', 'clim', qc.climatology_check(self.getvar('DAT'), 
+                                                       self.getnorm('DAT'), 
+                                                       parameters['maximum_anomaly']))
+        self.set_qc('DAT', 'nonorm', qc.no_normal_check(self.getnorm('DAT')))
+        self.set_qc('DAT', 'hardlimit', qc.hard_limit(self.getvar('DAT'), parameters['hard_limits']))
 
     def do_kate_mat_qc(self, parameters):
         '''
         Kate's modified MAT checks, non missing, modified climatology check, check for normal etc.
+        Has a mix of AT and AT2 because we want to keep two sets of climatologies and checks for humidity
         '''
-        
+
         self.set_qc('AT2', 'clim', 
                     qc.climatology_plus_stdev_check(self.getvar('AT2'), 
                                                     self.getnorm('AT2'), 
@@ -1064,9 +1218,9 @@ class MarineReportQC(MarineReport):
                                                     parameters['maximum_standardised_anomaly']))
         
         self.set_qc('AT2', 'noval', qc.value_check(self.getvar('AT2')))
-        
         self.set_qc('AT2', 'nonorm', qc.no_normal_check(self.getnorm('AT2')))
-        
+        self.set_qc('AT2', 'hardlimit', qc.hard_limit(self.getvar('AT'), parameters['hard_limits']))
+
     def do_base_dpt_qc(self, parameters):
         '''
         Run the base DPT checks, non missing, modified climatology check, check for normal,
@@ -1081,7 +1235,7 @@ class MarineReportQC(MarineReport):
 
         self.set_qc('DPT', 'noval', qc.value_check(self.getvar('DPT')))
         self.set_qc('DPT', 'nonorm', qc.no_normal_check(self.getnorm('DPT')))
-        self.set_qc('DPT', 'ssat', qc.supersat_check(self.getvar('DPT'), self.getvar('AT2')))
+        self.set_qc('DPT', 'ssat', qc.supersat_check(self.getvar('DPT'), self.getvar('AT2')))      
 
     def is_deck_780(self):
         '''
@@ -1149,23 +1303,6 @@ class MarineReportQC(MarineReport):
             self.set_qc('POS', 'isship', 1)
         else:
             self.set_qc('POS', 'isship', 0)
-
-def pvar(var, mdi, scale):
-    '''
-    Convert a variable to a rounded integer
-    
-    :param var: the variable to be scaled and rounded
-    :param mdi: the value to set the variable to if missing or None
-    :param scale: the factor by which to scale the number before rounding
-    :type var: float
-    :type mde: integer
-    :type scale: integer
-    '''
-    if var == None:
-        ret = mdi
-    else:
-        ret = round(var * scale)
-    return ret
 
 class Voyage:
     '''
@@ -1353,11 +1490,11 @@ class Voyage:
         '''
         pass
 
-    def find_supersaturated_runs(self, parameters):
+    def find_saturated_runs(self, parameters):
         '''
         Perform checks on persistence of 100% rh while going through the voyage.
         While going through the voyage repeated strings of 100 %rh (AT == DPT) are noted. 
-        If a string extends beyond two days/48 hrs in time then all values are set to 
+        If a string extends beyond 20 reports and two days/48 hrs in time then all values are set to 
         fail the repsat qc flag.
         '''
         min_time_threshold = parameters['min_time_threshold']
@@ -1369,11 +1506,11 @@ class Voyage:
 
             self.reps[i].set_qc('DPT', 'repsat', 0)
 
-            if rep.super_saturated():
+            if rep.saturated():
 
                 satcount.append(i)
 
-            elif not(rep.super_saturated()) and len(satcount) > shortest_run:
+            elif not(rep.saturated()) and len(satcount) > shortest_run:
 
                 shpspd, shpdis, shpdir, tdiff = \
                 self.reps[satcount[len(satcount)-1]] - self.reps[satcount[0]]
@@ -1406,10 +1543,10 @@ class Voyage:
         whole numbers and set the 'round' flag. Used in the humidity QC 
         where there are times when the values are rounded and this may 
         have caused a bias.
-        
-        :param threshold: Fraction of obs in a :class:`.Voyage` above which rounded obs are flagged, 0.5 is default
+
+        :param parameters: A dictionary with two entries 'threshold' Fraction of obs in a :class:`.Voyage` above which rounded obs are flagged and 'min_count' the smallest number of observations to which this check can be applied
         :param intype: variable name being checked 'DPT' is default
-        :type threshold: float between 0.0 and 1.0
+        :type threshold: float between 0.0 and 1.0 and integer
         :type intype: string
         '''
         assert intype in ['SST', 'AT', 'AT2', 'DPT']
@@ -1452,16 +1589,16 @@ class Voyage:
         """
         Find cases where more than a given proportion of SSTs have the same value
         
-        :param threshold: the maximum fraction of observations that can have a given value
+        :param parameters: a dictionary with two entries, 'threshold' the maximum fraction of observations that can have a given value and 'min_count' the smallest sequence of observations that this check will be performed on
         :param intype: either 'SST' or 'MAT' to find repeated SSTs or MATs
-        :type threshold: float
+        :type threshold: float and integer
         :type intype: string
         
         This method goes through a voyage and finds any cases where more than a threshold fraction of 
         the observations have the same SST or NMAT values or whatever.
         """
 
-        assert intype in ['SST', 'AT', 'AT2', 'DPT']
+        assert intype in ['SST', 'AT', 'AT2', 'DPT', 'SLP']
 
         threshold = parameters['threshold']
         assert threshold >= 0.0 and threshold <= 1.0
@@ -1790,7 +1927,7 @@ class Voyage:
         historic trivia so exercises my mind, but it does: the 1990s! I wish my code 
         would last so long.
         '''
-        
+
         max_direction_change = parameters['max_direction_change']
         max_speed_change = parameters['max_speed_change']
         max_absolute_speed = parameters['max_absolute_speed']
@@ -1832,13 +1969,11 @@ class Voyage:
 
     #work out speeds and distances between alternating points
         self.calc_alternate_speeds()
-
     #what are the mean and mode speeds?
         mean_speed = self.meansp()
         modal_speed = tc.modesp(self.get_speed())
     #set speed limits based on modal speed
         amax, amaxx, amin = tc.set_speed_limits(modal_speed)
-
     #compare reported speeds and positions if we have them
         forward_diff_from_estimated  = self.distr1()
         reverse_diff_from_estimated  = self.distr2()
@@ -1904,12 +2039,20 @@ class Voyage:
         self.set_qc(nobs-1, 'POS', 'few', 0)
 
     def spike_check(self, parameters, intype='SST'):
+        '''
+        Perform IQUAM like spike check on the :class:`.Voyage`.
+
+        :param parameters: Parameter dictionary containing entries for max_gradient_space, max_gradient_time, ship_delta_t, buoy_delta_t and number_of_neighbours.
+        :param intype: Variable to spike check (currently limited to SST)
+        :type parameters: dictionary 
+        :type intype: string
+        '''
 
         numobs = len(self)
 
         if numobs == 0:
             return
-       
+
         max_gradient_space = parameters['max_gradient_space'] #K/km
         max_gradient_time  = parameters['max_gradient_time'] #K/hr
 
@@ -1971,7 +2114,75 @@ class Voyage:
 
         return
 
-        pass
+    def write_qc(self, runid, icoads_dir, year, month, allvarnames):
+        '''
+        Write out QC flags for specified variable names from 
+        the contents of the :class:`.Deck`.
+        '''
+        count_write = 0
+        syr = str(year)
+        smn = "%02d" % (month)
+        for var in allvarnames:
+            outfilename = var+'_qc_'+syr+smn+'_'+self.reps[0].data['ID']+'_'+runid+'.csv'
+            outfile = open(icoads_dir+'/'+outfilename, 'w')           
+            outfile.write(self.reps[0].print_qc_block(var, allvarnames[var], header=True))
+            for rep in self.reps:
+                if rep.data['YR'] == year and rep.data['MO'] == month:
+                    outfile.write(rep.print_qc_block(var, allvarnames[var], header=False))
+                    count_write += 1
+            outfile.close()
+        
+        print "wrote out ", count_write, " obs"
+        return
+
+    def write_output(self, runid, icoads_dir, year, month):
+        '''
+        Write out the contents of the :class:`.Voyage`.
+        '''
+        count_write = 0
+        syr = str(year)
+        smn = "%02d" % (month)
+
+        outfilename = 'Variables_'+syr+smn+'_'+self.reps[0].data['ID']+'_'+runid+'.csv'
+        outfile = open(icoads_dir+outfilename, 'w')
+        varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
+                    ['AT'], ['AT', 'anom'],
+                    ['SST'], ['SST', 'anom'],
+                    ['DPT'], ['DPT', 'anom'],
+                    ['SLP'], ['SLP', 'anom'],
+                    ['OSTIA'], ['ICE'], ['BGVAR']]
+        outfile.write(self.reps[0].print_variable_block(varnames, header=True))
+        for rep in self.reps:
+            if rep.data['YR'] == year and rep.data['MO'] == month:
+                outfile.write(rep.print_variable_block(varnames))
+                count_write += 1
+        outfile.close()
+
+        #write out base QC
+        allvarnames = {'POS':['day', 'isship', 'trk', 'date', 'time', 'pos', 'blklst', 'isbuoy', 'iquam_track'],
+                       'SST':['bud', 'clim', 'nonorm', 'freez', 'noval', 'nbud', 'bbud', 'rep', 'spike', 'hardlimit']
+                      }
+
+        self.write_qc(runid, icoads_dir, year, month, allvarnames)
+
+#        for var in allvarnames:
+
+#            outfilename = var+'_qc_'+syr+smn+'_'+runid+'.csv'
+#            if Test: outfilename = 'Test_'+outfilename
+
+#            outfile = open(icoads_dir+'/'+outfilename, 'w')
+            
+#            outfile.write(self.reps[0].print_qc_block(var, allvarnames[var], header=True))
+#            for rep in self.reps:
+#                if rep.data['YR'] == year and rep.data['MO'] == month:
+#                    outfile.write(rep.print_qc_block(var, allvarnames[var], header=False))
+            
+#            outfile.close()
+
+        print "wrote out ", count_write, " obs for",self.reps[0].data['ID'] 
+
+        
+        return
 
 class Np_Super_Ob:
     '''
@@ -2061,7 +2272,7 @@ class Np_Super_Ob:
             xindex = nonmiss[0][i]
             yindex = nonmiss[1][i]
             pindex = nonmiss[2][i]
-            m,d = qc.pentad_to_month_day(pindex+1)
+            m, d = qc.pentad_to_month_day(pindex+1)
 
             stdev = pentad_stdev.get_value_mds_style(89.5-yindex, -179.5+xindex, m, d)
 
@@ -2104,10 +2315,10 @@ class Np_Super_Ob:
             xindex = nonmiss[0][i]
             yindex = nonmiss[1][i]
             pindex = nonmiss[2][i]
-            m,d = qc.pentad_to_month_day(pindex+1)
+            month, day = qc.pentad_to_month_day(pindex+1)
 
 #bug noted here single field getsst but multiple fields passed
-            stdev = pentad_stdev.get_value_mds_style(89.5-yindex, -179.5+xindex, m, d)
+            stdev = pentad_stdev.get_value_mds_style(89.5-yindex, -179.5+xindex, month, day)
 
             if stdev == None or stdev < 0.0:
                 stdev = 1.0
@@ -2216,10 +2427,12 @@ class Np_Super_Ob:
         :param stdev1: Field of standard deviations representing standard deviation of difference between target gridcell and complete neighbour average (grid area to neighbourhood difference)
         :param stdev2: Field of standard deviations representing standard deviation of difference between a single observation and the target gridcell average (point to grid area difference)
         :param stdev3: Field of standard deviations representing standard deviation of difference between random neighbour gridcell and full neighbour average (uncertainty in neighbour average)
+        :param limits: three membered list of number of degrees in latitude and longitude and number of pentads
         :param sigma_m: Estimated measurement error uncertainty
         :type stdev1: numpy array
         :type stdev2: numpy array
         :type stdev3: numpy array
+        :type limits: list of floats
         :type sigma_m: float
         '''
 
@@ -2230,7 +2443,7 @@ class Np_Super_Ob:
             yindex = nonmiss[1][i]
             pindex = nonmiss[2][i]
 
-            m,d = qc.pentad_to_month_day(pindex+1)
+            m, d = qc.pentad_to_month_day(pindex+1)
 
             stdev1_ex = stdev1.get_value(89.5 - yindex, -179.5 + xindex, m, d)
             stdev2_ex = stdev2.get_value(89.5 - yindex, -179.5 + xindex, m, d)
@@ -2425,7 +2638,7 @@ class Deck:
         :type intype: string
         :type pentad_stdev: numpy array
         '''
-        assert intype in ['SST', 'AT', 'DPT'], intype
+        assert intype in ['SST', 'AT', 'DPT', 'SLP'], intype
 
         limits = parameters['limits']
         number_of_obs_thresholds = parameters['number_of_obs_thresholds']
@@ -2556,11 +2769,14 @@ class Deck:
             for i in self.idtracker[one_id]:
                 if self.filter.test_report(self.reps[i]) == 0:
                     out_voyage.add_report(self.reps[i])
-                    
+
             yield out_voyage
 
     def write_qc(self, runid, icoads_dir, year, month, allvarnames, Test=False):
-
+        '''
+        Write out QC flags for specified variable names from 
+        the contents of the :class:`.Deck`.
+        '''
         count_write = 0
         syr = str(year)
         smn = "%02d" % (month)
@@ -2583,7 +2799,9 @@ class Deck:
         return
 
     def write_output(self, runid, icoads_dir, year, month, Test=False):
-
+        '''
+        Write out the contents of the :class:`.Deck`.
+        '''
         count_write = 0
         syr = str(year)
         smn = "%02d" % (month)
@@ -2593,10 +2811,12 @@ class Deck:
 
         outfile = open(icoads_dir+outfilename, 'w')
 
-        varnames=[['ID'],['YR'],['MO'],['DY'],['HR'],['LAT'],['LON'],
-                  ['AT'],['AT','anom'],
-                  ['SST'],['SST','anom'],
-                  ['DPT'],['DPT','anom']]
+        varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
+                    ['AT'], ['AT', 'anom'],
+                    ['SST'], ['SST', 'anom'],
+                    ['DPT'], ['DPT', 'anom'],
+                    ['SLP'], ['SLP', 'anom'],
+                    ['OSTIA']]
 
         outfile.write(self.reps[0].print_variable_block(varnames, header=True))
         for rep in self.reps:
@@ -2606,28 +2826,53 @@ class Deck:
         outfile.close()
 
         #write out base QC
-        allvarnames = {'POS':['day','isship','trk','date','time','pos','blklst','isbuoy'],
-                       'SST':['bud','clim','nonorm','freez','noval','nbud','bbud','rep'],
-                       'AT': ['bud','clim','nonorm','freez','noval','mat_blacklist','bbud','rep'],
-                       'DPT':['bud','clim','nonorm','freez','noval','hum_blacklist','bbud','rep','ssat','repsat','round']}
+        allvarnames = {'POS':['day', 'isship', 'trk', 'date', 'time', 'pos', 'blklst', 'isbuoy', 'iquam_track'],
+                       'SST':['bud', 'clim', 'nonorm', 'freez', 'noval', 'nbud', 'bbud', 'rep', 'spike', 'hardlimit'],
+                       'AT': ['bud', 'clim', 'nonorm', 'freez', 'noval', 'mat_blacklist', 'bbud', 'rep', 'hardlimit'],
+                       'DPT':['bud', 'clim', 'nonorm', 'freez', 'noval', 'hum_blacklist', 'bbud', 'rep', 'ssat', 'repsat', 'round', 'hardlimit'],
+                       'SLP':['bud', 'clim', 'nonorm', 'noval', 'rep']}
 
         self.write_qc(runid, icoads_dir, year, month, allvarnames, Test=Test)
 
-#        for var in allvarnames:
+        print "wrote out ", count_write, " obs"
+        
+        return
 
-#            outfilename = var+'_qc_'+syr+smn+'_'+runid+'.csv'
-#            if Test: outfilename = 'Test_'+outfilename
+    def write_min_output(self, runid, icoads_dir, year, month, Test=False):
+        '''
+        Write out the contents of the :class:`.Deck`.
+        '''
+        count_write = 0
+        syr = str(year)
+        smn = "%02d" % (month)
 
-#            outfile = open(icoads_dir+'/'+outfilename, 'w')
-            
-#            outfile.write(self.reps[0].print_qc_block(var, allvarnames[var], header=True))
-#            for rep in self.reps:
-#                if rep.data['YR'] == year and rep.data['MO'] == month:
-#                    outfile.write(rep.print_qc_block(var, allvarnames[var], header=False))
-            
-#            outfile.close()
+        outfilename = 'Variables_'+syr+smn+'_'+runid+'.csv'
+        if Test: outfilename = 'Test_'+outfilename
+
+        outfile = open(icoads_dir+outfilename, 'w')
+
+        varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
+                    ['AT'], ['AT', 'anom'],
+                    ['SST'], ['SST', 'anom'],
+                    ['DPT'], ['DPT', 'anom']
+                   ]
+
+        outfile.write(self.reps[0].print_variable_block(varnames, header=True))
+        for rep in self.reps:
+            if rep.data['YR'] == year and rep.data['MO'] == month:
+                outfile.write(rep.print_variable_block(varnames))
+                count_write += 1
+        outfile.close()
+
+        #write out base QC
+        allvarnames = {'POS':['day', 'isship', 'trk', 'date', 'time', 'pos', 'blklst', 'isbuoy'],
+                       'SST':['bud', 'clim', 'nonorm', 'freez', 'noval', 'nbud', 'bbud', 'rep'],
+                       'AT': ['bud', 'clim', 'nonorm', 'freez', 'noval', 'mat_blacklist', 'bbud', 'rep'],
+                       'DPT':['bud', 'clim', 'nonorm', 'freez', 'noval', 'hum_blacklist', 'bbud', 'rep', 'ssat', 'repsat', 'round']
+                      }
+
+        self.write_qc(runid, icoads_dir, year, month, allvarnames, Test=Test)
 
         print "wrote out ", count_write, " obs"
-
         
         return

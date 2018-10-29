@@ -1,5 +1,3 @@
-# Written by Kate Willett 7th Feb 2016
-
 '''
 The CalcHums module contains a set of functions for calculating humidity
 variables. At present it can only cope with scalars, not arrays.
@@ -30,12 +28,11 @@ THIS ROUTINE HAS a roundit=True/False. The default is True - round to one
 decimal place.
 Otherwise - set roundit=False
 
+Written by Kate Willett 7th Feb 2016
 '''
 
 import numpy as np
-#import math
 
-#******************************************************************************
 def vap(td, t, p, roundit=True):
     '''
     This function calculates a vapour pressure scalar or array
@@ -88,26 +85,25 @@ def vap(td, t, p, roundit=True):
 
     # Calculate pseudo-e assuming wet bulb to calculate a 
     #pseudo-wet bulb (see wb below)
-    f = 1 + (7.*(10**(-4.))) + ((3.46*(10**(-6.)))*p)
-    e = 6.1121*f*np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
+    f = 1 + (7. * (10**(-4.))) + ((3.46 * (10**(-6.))) * p)
+    e = 6.1121 * f * np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
 
-    a = 0.000066*p
-    b = ((409.8*e) / ((td + 237.3)**2))
-    w = (((a*t) + (b*td)) / (a + b))
+    a = 0.000066 * p
+    b = ((409.8 * e) / ((td + 237.3)**2))
+    w = (((a * t) + (b * td)) / (a + b))
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
     if (w <= 0.0):
-        f = 1 + (3.*(10**(-4.))) + ((4.18*(10**(-6.)))*p)
-        e = 6.1115*f*np.exp(((23.036 - (td/333.7))*td) / (279.82+td))
+        f = 1 + (3. * (10**(-4.))) + ((4.18 * (10**(-6.))) * p)
+        e = 6.1115 * f * np.exp(((23.036 - (td / 333.7)) * td) / (279.82 + td))
 	
     if (roundit == True):
-        e = round(e*10)/10.	
-	     
+        e = round(e * 10) /10.	
+
     return e
 
-#***************************************************************************
 def vap_from_sh(sh, p, roundit=True):
     '''
     This function calculates a vapour pressure scalar or array
@@ -144,14 +140,13 @@ def vap_from_sh(sh, p, roundit=True):
     '''
     e = None
 
-    e = ((sh/1000.) * p) / (0.622 + (0.378 * (sh/1000.)))
+    e = ((sh / 1000.) * p) / (0.622 + (0.378 * (sh / 1000.)))
 
     if (roundit == True):
-        e = round(e*10.)/10.	 
+        e = round(e * 10.) / 10.	 
 	    
     return e
 
-#****************************************************************************	
 def sh(td, t, p, roundit=True):
     '''
     This function calculates a specific humidity scalar or array
@@ -221,7 +216,6 @@ def sh(td, t, p, roundit=True):
 	
     return q
 
-#*******************************************************************************
 def sh_from_vap(e, p, roundit=True):
     '''
     This function calculates a specific humidity scalar or array
@@ -266,7 +260,6 @@ def sh_from_vap(e, p, roundit=True):
     	
     return q
 
-#*******************************************************************************
 def rh(td, t, p, roundit=True):
     '''
     This function calculates a relative humidity scalar or array
@@ -358,7 +351,6 @@ def rh(td, t, p, roundit=True):
 	
     return r 
 
-#**************************************************************************	
 def wb(td, t, p, roundit=True):
     '''
     This function calculates a wet bulb temperature scalar or array
@@ -435,7 +427,6 @@ def wb(td, t, p, roundit=True):
 	
     return w 
 
-#*********************************************************************
 def dpd(td, t, roundit=True):
     '''
     This function calculates a dew point depression scalar or array
@@ -477,7 +468,6 @@ def dpd(td, t, roundit=True):
 		
     return dp 
 
-#*********************************************************************
 def td_from_vap(e, p, t, roundit=True):
     '''
     This function calculates a dew point depression scalar or array

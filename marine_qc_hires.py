@@ -15,7 +15,6 @@ import csv
 from netCDF4 import Dataset
 import qc
 from IMMA1 import IMMA
-from NRT import NRT
 import Extended_IMMA as ex
 import Climatology as clim
 import argparse
@@ -39,15 +38,6 @@ def process_bad_id_file(bad_id_file):
     idfile.close()
     return ids_to_exclude
 
-def nrt_filename(nrt_dir, readyear, readmonth):
-
-#    assert readyear > 2016
-    
-    syr = str(readyear)
-    smn = "%02d" % (readmonth) 
-    
-    return nrt_dir+'/OSMC_'+syr+smn+'.csv.gz'
-
 def icoads_filename(icoads_dir, readyear, readmonth, version):
 
     assert version in ['2.5','3.0'], "name not 2.5 or 3.0"
@@ -56,15 +46,15 @@ def icoads_filename(icoads_dir, readyear, readmonth, version):
     smn = "%02d" % (readmonth) 
     
     if version == '2.5':
-        filename = icoads_dir+'/R2.5.1.'+syr+'.'+smn+'.gz'
+        filename = icoads_dir+'/ICOADS.2.5.1/R2.5.1.'+syr+'.'+smn+'.gz'
         if ((readyear > 2007) & (readyear < 2015)):
             filename = icoads_dir+'/R2.5.2.'+syr+'.'+smn+'.gz'
 
     if version == '3.0':
         if readyear <= 2014:
-            filename = icoads_dir+'/IMMA1_R3.0.0_'+syr+'-'+smn+'.gz'
+            filename = icoads_dir+'/ICOADS.3.0.0/IMMA1_R3.0.0_'+syr+'-'+smn+'.gz'
         if readyear >= 2015:
-            filename = icoads_dir+'/../ICOADS.3.0.1/IMMA1_R3.0.1_'+syr+'-'+smn+'.gz'
+            filename = icoads_dir+'/ICOADS.3.0.1/IMMA1_R3.0.1_'+syr+'-'+smn+'.gz'
             
     return filename
 
@@ -98,7 +88,6 @@ def main(argv):
     parser.add_argument('-month1', type=int, default=1, help='First month for processing')
     parser.add_argument('-month2', type=int, default=1, help='Final month for processing')
     parser.add_argument('-test', action='store_true', help='run test suite')
-    parser.add_argument('-nrt',  action='store_true', help='run on NRT drifters')
     args = parser.parse_args() 
 
     inputfile = args.config
@@ -107,7 +96,6 @@ def main(argv):
     month1 = args.month1
     month2 = args.month2
     Test = args.test 
-    nrt = args.nrt
 
     print 'Input file is ', inputfile
     print 'Running from ', month1, year1, ' to ', month2, year2
@@ -119,13 +107,10 @@ def main(argv):
     sst_climatology_file  = '/project/mds/HADISST2/OIv2_clim_MDS_6190_0.25x0.25xdaily_365.nc'
 
     icoads_dir = config.get('Directories', 'ICOADS_dir')
-    nrt_dir = config.get('Directories', 'nrt_dir')
+    out_dir = config.get('Directories', 'out_dir')
     bad_id_file = config.get('Files', 'IDs_to_exclude')
     version = config.get('Icoads', 'icoads_version')
 
-    if nrt:
-        print 'NRT directory =',nrt_dir
-    
     print 'ICOADS directory =', icoads_dir
     print 'ICOADS version =', version
     print 'List of bad IDs =', bad_id_file 
@@ -188,8 +173,7 @@ def main(argv):
                     
 #if this is not on the exclusion list, readable and not a buoy in the NRT runs
                 if (not(rec.data['ID'] in ids_to_exclude) and 
-                    readob and 
-                    not(nrt and rec.data['PT'] == 7) and
+                    readob and
                     rec.data['YR'] == readyear and
                     rec.data['MO'] == readmonth):
 
@@ -203,33 +187,7 @@ def main(argv):
                 rec = IMMA()
             icoads_file.close()
 
-            if nrt:
-                filename = nrt_filename(nrt_dir, readyear, readmonth)
-                try:
-                    icoads_file = gzip.open(filename, "r")
-                except IOError:
-                    print "no NRT file for ", readyear, readmonth,filename
-                    continue
-                rec = NRT()
-                for line in icoads_file:
-                    try:
-                        rec.readstr(line)
-                        readob = True
-                    except:
-                        readob = False
-                        print "Rejected ob", line
-                    if (not(rec.data['ID'] in ids_to_exclude) and readob):
-                        rep = ex.MarineReportQC(rec)
-                        del rec
-                        rep_clim = climlib.get_field('SST', 'mean').get_value(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY')) 
-                        rep.add_climate_variable('SST', rep_clim)
-                        rep.perform_base_sst_qc(parameters)
-                        reps.append(rep)
-                        count2 += 1
-                    rec = NRT()
-                icoads_file.close()
-
-        print "Read ", count, " ICOADS records and ",count2," NRT records"
+        print "Read ", count, " ICOADS records"
 
 #filter the obs into passes and fails of basic positional QC        
         filt = ex.QC_filter()
@@ -268,11 +226,9 @@ def main(argv):
         reps.bayesian_buddy_check('SST', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
         reps.mds_buddy_check('SST', sst_pentad_stdev, parameters['mds_buddy_check'])
 
-        varnames_to_print = {'SST':['bud','clim','nonorm','freez','noval','nbud','bbud','rep']}
-        if nrt:
-            reps.write_qc('hires_'+parameters['runid'], nrt_dir, year, month, varnames_to_print)
-        else:
-            reps.write_qc('hires_'+parameters['runid'], icoads_dir, year, month, varnames_to_print)
+        varnames_to_print = {'SST':['bud', 'clim', 'nonorm', 'freez', 'noval', 'nbud', 'bbud', 'rep', 'spike', 'hardlimit']}
+        
+        reps.write_qc('hires_'+parameters['runid'], out_dir, year, month, varnames_to_print)
 
         del reps
 

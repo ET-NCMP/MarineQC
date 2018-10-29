@@ -2,12 +2,11 @@
 '''
 marine_qc.py invoked by typing::
 
-  python2.7 marine_qc.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-test]
+  python2.7 marine_qc.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-tracking] 
 
 This quality controls data for the chosen years. The location 
 of the data and the locations of the climatology files are 
-all to be specified in the configuration files. Benchmarks can 
-be run using -test.
+all to be specified in the configuration files.
 '''
 
 import gzip
@@ -15,14 +14,31 @@ import csv
 from netCDF4 import Dataset
 import qc
 from IMMA1 import IMMA
-from NRT import NRT
-import TestIMMA as timma
 import Extended_IMMA as ex
 import Climatology as clim
 import argparse
 import ConfigParser
 import json
 import sys
+import os
+import subprocess
+
+def safe_make_dir(out_dir, year, month):
+    syr = str(year)
+    smn = "%02d" % (month)
+    d1 = out_dir+'/'+syr
+    d2 = out_dir+'/'+syr+'/'+smn+'/'
+    try:
+        os.mkdir(d1)
+        print("Directory " , d1 ,  " Created ") 
+    except OSError:
+        print("Directory " , d1 ,  " already exists")
+    try:
+        os.mkdir(d2)
+        print("Directory " , d2 ,  " Created ") 
+    except OSError:
+        print("Directory " , d2 ,  " already exists")
+    return d2
 
 def process_bad_id_file(bad_id_file):
     '''
@@ -40,15 +56,6 @@ def process_bad_id_file(bad_id_file):
     idfile.close()
     return ids_to_exclude
 
-def nrt_filename(nrt_dir, readyear, readmonth):
-
-#    assert readyear > 2016
-    
-    syr = str(readyear)
-    smn = "%02d" % (readmonth) 
-    
-    return nrt_dir+'/OSMC_'+syr+smn+'.csv.gz'
-
 def icoads_filename(icoads_dir, readyear, readmonth, version):
 
     assert version in ['2.5','3.0'], "name not 2.5 or 3.0"
@@ -57,17 +64,48 @@ def icoads_filename(icoads_dir, readyear, readmonth, version):
     smn = "%02d" % (readmonth) 
     
     if version == '2.5':
-        filename = icoads_dir+'/R2.5.1.'+syr+'.'+smn+'.gz'
+        filename = icoads_dir+'/ICOADS.2.5.1/R2.5.1.'+syr+'.'+smn+'.gz'
         if ((readyear > 2007) & (readyear < 2015)):
             filename = icoads_dir+'/R2.5.2.'+syr+'.'+smn+'.gz'
 
     if version == '3.0':
         if readyear <= 2014:
-            filename = icoads_dir+'/IMMA1_R3.0.0_'+syr+'-'+smn+'.gz'
+            filename = icoads_dir+'/ICOADS.3.0.0/IMMA1_R3.0.0_'+syr+'-'+smn+'.gz'
         if readyear >= 2015:
-            filename = icoads_dir+'/../ICOADS.3.0.1/IMMA1_R3.0.1_'+syr+'-'+smn+'.gz'
+            filename = icoads_dir+'/ICOADS.3.0.1/IMMA1_R3.0.1_'+syr+'-'+smn+'.gz'
 
     return filename
+
+def ostia_filename(ostia_dir, year, month, day):
+    
+    if year is None or month is None or day is None:
+        return None
+    
+    sy = str(year)
+    sm = "%02d" % (month) 
+    sd = "%02d" % (day) 
+#/project/ofrd/ostia/reanalysis/v1.0/
+#/project/ofrd/ostia/data/netcdf/
+    if year > 2007:
+        dir = ostia_dir +'/data/netcdf/'+ sy +'/'+ sm +'/'
+        fname = sy+sm+sd+'-UKMO-L4HRfnd-GLOB-v01-fv02-OSTIA.nc'
+    else:
+        dir = ostia_dir +'/reanalysis/v1.0/'+ sy +'/'+ sm +'/'
+        fname = sy+sm+sd+'-UKMO-L4HRfnd-GLOB-v01-fv02-OSTIARAN.nc'
+
+#First check if this thing is already unzipped somewhere
+    if (os.path.isfile('/scratch/hadjj/'+fname) and 
+        os.stat('/scratch/hadjj/'+fname).st_size != 0):
+        print("File already exists"+'/scratch/hadjj/'+fname)
+        return '/scratch/hadjj/'+fname
+
+    if os.path.isfile(dir+fname+'.bz2'):
+        print("Bunzipping the file"+dir+fname+".bz2")
+        subprocess.call('bunzip2 -c '+dir+fname+'.bz2 > /scratch/hadjj/'+fname, shell=True)
+        return '/scratch/hadjj/'+fname
+    else:
+        print("no file to bunzip returning None "+dir+fname+".bz2")
+        return None
 
 def main(argv):
     '''
@@ -99,8 +137,7 @@ def main(argv):
     parser.add_argument('-year2', type=int, default=1850, help='Final year for processing')
     parser.add_argument('-month1', type=int, default=1, help='First month for processing')
     parser.add_argument('-month2', type=int, default=1, help='Final month for processing')
-    parser.add_argument('-test', action='store_true', help='run test suite')
-    parser.add_argument('-nrt',  action='store_true', help='run on NRT drifters')
+    parser.add_argument('-tracking', action='store_true', help='perform tracking QC')
     args = parser.parse_args() 
 
     inputfile = args.config
@@ -108,11 +145,9 @@ def main(argv):
     year2 = args.year2
     month1 = args.month1
     month2 = args.month2
-    Test = args.test 
-    nrt = args.nrt
+    Tracking = args.tracking
 
-    if Test: print "running on benchmarks. This is a test."
-    else: print "running on ICOADS, this is not a test!"
+    print "running on ICOADS, this is not a test!"
 
     print 'Input file is ', inputfile
     print 'Running from ', month1, year1, ' to ', month2, year2
@@ -121,16 +156,14 @@ def main(argv):
     config = ConfigParser.ConfigParser()    
     config.read(inputfile)
     icoads_dir = config.get('Directories', 'ICOADS_dir')
-    nrt_dir = config.get('Directories', 'nrt_dir')
+    out_dir = config.get('Directories', 'out_dir')
     bad_id_file = config.get('Files', 'IDs_to_exclude')
-    test_dir = config.get('Directories', 'test_dir')
+    if Tracking: ostia_dir = config.get('Directories', 'ostia_dir')
     version = config.get('Icoads', 'icoads_version')
-
-    if nrt:
-        print 'NRT directory =',nrt_dir
 
     print 'ICOADS directory =', icoads_dir
     print 'ICOADS version =', version
+    print 'Output to',out_dir
     print 'List of bad IDs =', bad_id_file
     print 'Parameter file =', config.get('Files','parameter_file')
     print ''
@@ -144,9 +177,10 @@ def main(argv):
     sst_stdev_2 = clim.Climatology.from_filename(config.get('Climatologies', 'SST_buddy_one_ob_to_box_avg'), 'sst')
     sst_stdev_3 = clim.Climatology.from_filename(config.get('Climatologies', 'SST_buddy_avg_sampling'), 'sst')
 
+
     with open(config.get('Files','parameter_file'), 'r') as f:
         parameters = json.load(f)
-    
+
     print "Reading climatologies from parameter file"
     climlib = ex.ClimatologyLibrary()
     for entry in parameters['climatologies']:
@@ -162,38 +196,25 @@ def main(argv):
 
         reps = ex.Deck()
         count = 0
-        count2 = 0
+        lastday = -99
 
-        for readyear, readmonth in qc.year_month_gen(last_year, 
-                                                     last_month, 
-                                                     next_year, 
-                                                     next_month):
+        for readyear, readmonth in qc.year_month_gen(last_year, last_month, next_year, next_month):
 
             print readyear, readmonth
             syr = str(readyear)
             smn = "%02d" % (readmonth)
 
-            if Test:
-                filename = test_dir+'test_data_'+syr+smn
-                try:
-                    f = open(filename, "r")
-                    icoads_file = csv.reader(f)
-                except IOError:
-                    print "no test file for ", readyear, readmonth
-                    continue                    
-            else:
-                filename = icoads_filename(icoads_dir, readyear, 
-                                           readmonth, version)
-                try:
-                    icoads_file = gzip.open(filename, "r")
-                except IOError:
-                    print "no ICOADS file for ", readyear, readmonth
-                    continue
+            if Tracking:
+                ostia_bg_var = clim.Climatology.from_filename(config.get('Climatologies', qc.season(readmonth)+'_ostia_background'), 'bg_var')
 
-            if Test:
-                rec = timma.IMMA()
-            else:   
-                rec = IMMA()
+            filename = icoads_filename(icoads_dir, readyear, readmonth, version)
+            try:
+                icoads_file = gzip.open(filename, "r")
+            except IOError:
+                print "no ICOADS file for ", readyear, readmonth
+                continue
+
+            rec = IMMA()
 
             for line in icoads_file:
 
@@ -205,8 +226,7 @@ def main(argv):
                     print "Rejected ob", line
 
                 if (not(rec.data['ID'] in ids_to_exclude) and 
-                    readob and 
-                    not(nrt and rec.data['PT'] == 7) and
+                    readob and
                     rec.data['YR'] == readyear and
                     rec.data['MO'] == readmonth):
 
@@ -215,15 +235,31 @@ def main(argv):
 
                     rep.setvar('AT2', rep.getvar('AT'))
 
+                    #if day has changed then read in OSTIA field if available and append SST and sea-ice fraction
+                    #to the observation metadata
+                    if Tracking and readyear >= 1985 and rep.getvar('DY') is not None:
+                        if rep.getvar('DY') != lastday:
+                            lastday = rep.getvar('DY')
+                            y_year, y_month, y_day = qc.yesterday(readyear, readmonth, lastday)
+                            ofname = ostia_filename(ostia_dir, y_year, y_month, y_day)
+                            climlib.add_field('OSTIA', 'background', clim.Climatology.from_filename(ofname, 'analysed_sst'))
+                            climlib.add_field('OSTIA', 'ice', clim.Climatology.from_filename(ofname, 'sea_ice_fraction'))
+
+                        rep_clim = climlib.get_field('OSTIA', 'background').get_value_ostia(rep.lat(), rep.lon())
+                        if rep_clim is not None: rep_clim -= 273.15
+                        rep.setext('OSTIA', rep_clim)
+                        rep.setext('ICE', climlib.get_field('OSTIA', 'ice').get_value_ostia(rep.lat(), rep.lon()))
+                        rep.setext('BGVAR', ostia_bg_var.get_value_mds_style(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY')))
+
                     for varname in ['SST','AT']:
                         rep_clim = climlib.get_field(varname, 'mean').get_value_mds_style(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY'))
                         rep.add_climate_variable(varname, rep_clim)
 
-                    for varname in ['SLP', 'SHU', 'CRH', 'CWB', 'DPD']:
+                    for varname in ['SLP2', 'SHU', 'CRH', 'CWB', 'DPD']:
                         rep_clim = climlib.get_field(varname, 'mean').get_value(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY'))
                         rep.add_climate_variable(varname, rep_clim)   
 
-                    for varname in ['DPT', 'AT2']:
+                    for varname in ['DPT', 'AT2', 'SLP']:
                         rep_clim  = climlib.get_field(varname, 'mean').get_value(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY'))
                         rep_stdev = climlib.get_field(varname, 'stdev').get_value(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY'))
                         rep.add_climate_variable(varname, rep_clim, rep_stdev)   
@@ -235,45 +271,11 @@ def main(argv):
                     reps.append(rep)
                     count += 1
 
-                if Test:
-                    rec = timma.IMMA()
-                else:   
-                    rec = IMMA()
+                rec = IMMA()
 
-            if Test:
-                f.close()
-            else:
-                icoads_file.close()
+            icoads_file.close()
 
-#next read the NRT if needed
-            if nrt:                                     
-                filename = nrt_filename(nrt_dir, readyear, readmonth)
-                try:
-                    icoads_file = gzip.open(filename, "r")
-                except IOError:
-                    print "no NRT file for ", readyear, readmonth,filename
-                    continue
-                rec = NRT()
-                for line in icoads_file:
-                    try:
-                        rec.readstr(line)
-                        readob = True
-                    except:
-                        readob = False
-                        print "Rejected ob", line
-                    if (not(rec.data['ID'] in ids_to_exclude) and readob):
-                        rep = ex.MarineReportQC(rec)
-                        del rec
-                        rep.setvar('AT2', rep.getvar('AT'))
-                        rep_clim = climlib.get_field('SST', 'mean').get_value_mds_style(rep.lat(), rep.lon(), rep.getvar('MO'), rep.getvar('DY'))
-                        rep.add_climate_variable('SST', rep_clim)
-                        rep.perform_base_qc(parameters)
-                        reps.append(rep)
-                        count2 += 1
-                    rec = NRT()
-                icoads_file.close()
-
-        print "Read ", count, " ICOADS records and ",count2," NRT records"
+        print "Read ", count, " ICOADS records"
 
 #filter the obs into passes and fails of basic positional QC        
         filt = ex.QC_filter()
@@ -291,7 +293,7 @@ def main(argv):
             one_ship.track_check(parameters['track_check'])
             one_ship.iquam_track_check(parameters['IQUAM_track_check'])
             one_ship.spike_check(parameters['IQUAM_spike_check'])
-            one_ship.find_supersaturated_runs(parameters['supersaturated_runs'])
+            one_ship.find_saturated_runs(parameters['saturated_runs'])
             one_ship.find_multiple_rounded_values(parameters['multiple_rounded_values'])
 
             for varname in ['SST', 'AT', 'AT2', 'DPT']:
@@ -320,47 +322,79 @@ def main(argv):
         reps.bayesian_buddy_check('SST', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
         reps.mds_buddy_check('SST', sst_pentad_stdev, parameters['mds_buddy_check'])
 
-        if not nrt:
+#NMAT buddy check
+        filt = ex.QC_filter()
+        filt.add_qc_filter('POS', 'isship', 1) #only do ships mat_blacklist
+        filt.add_qc_filter('AT',  'mat_blacklist', 0)
+        filt.add_qc_filter('POS', 'date',   0)
+        filt.add_qc_filter('POS', 'time',   0)
+        filt.add_qc_filter('POS', 'pos',    0)
+        filt.add_qc_filter('POS', 'blklst', 0)
+        filt.add_qc_filter('POS', 'trk',    0)
+        filt.add_qc_filter('POS', 'day',    0)
+        filt.add_qc_filter('AT',  'noval',  0)
+        filt.add_qc_filter('AT',  'clim',   0)
+        filt.add_qc_filter('AT',  'nonorm', 0)
 
-    #NMAT buddy check
+        reps.add_filter(filt)
+
+        reps.bayesian_buddy_check('AT', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
+        reps.mds_buddy_check('AT', sst_pentad_stdev, parameters['mds_buddy_check'])
+
+#DPT buddy check #NB no day check for this one
+        filt = ex.QC_filter()
+        filt.add_qc_filter('DPT', 'hum_blacklist', 0)
+        filt.add_qc_filter('POS', 'date',   0)
+        filt.add_qc_filter('POS', 'time',   0)
+        filt.add_qc_filter('POS', 'pos',    0)
+        filt.add_qc_filter('POS', 'blklst', 0)
+        filt.add_qc_filter('POS', 'trk',    0)
+        filt.add_qc_filter('DPT', 'noval',  0)
+        filt.add_qc_filter('DPT', 'clim',   0)
+        filt.add_qc_filter('DPT', 'nonorm', 0)
+
+        reps.add_filter(filt)
+
+        reps.mds_buddy_check('DPT', climlib.get_field('DPT', 'stdev'), parameters['mds_buddy_check'])
+
+#SLP buddy check
+        filt = ex.QC_filter()
+        filt.add_qc_filter('POS', 'date',   0)
+        filt.add_qc_filter('POS', 'time',   0)
+        filt.add_qc_filter('POS', 'pos',    0)
+        filt.add_qc_filter('POS', 'blklst', 0)
+        filt.add_qc_filter('POS', 'trk',    0)
+        filt.add_qc_filter('SLP', 'noval',  0)
+        filt.add_qc_filter('SLP', 'clim',   0)
+        filt.add_qc_filter('SLP', 'nonorm', 0)
+
+        reps.add_filter(filt)
+
+        reps.mds_buddy_check('SLP', climlib.get_field('SLP', 'stdev'), parameters['slp_buddy_check'])
+
+        extdir = safe_make_dir(out_dir, year, month)
+        reps.write_output(parameters['runid'], extdir, year, month)
+
+        if Tracking:
+#set QC for output by ID - buoys only and passes base SST QC
             filt = ex.QC_filter()
-            filt.add_qc_filter('POS', 'isship', 1) #only do ships mat_blacklist
-            filt.add_qc_filter('AT',  'mat_blacklist', 0)
+            filt.add_qc_filter('POS', 'isbuoy', 1)
+            filt.add_qc_filter('POS', 'is780',  0)
             filt.add_qc_filter('POS', 'date',   0)
             filt.add_qc_filter('POS', 'time',   0)
             filt.add_qc_filter('POS', 'pos',    0)
             filt.add_qc_filter('POS', 'blklst', 0)
             filt.add_qc_filter('POS', 'trk',    0)
-            filt.add_qc_filter('POS', 'day',    0)
-            filt.add_qc_filter('AT',  'noval',  0)
-            filt.add_qc_filter('AT',  'clim',   0)
-            filt.add_qc_filter('AT',  'nonorm', 0)
-
+            filt.add_qc_filter('SST', 'noval',  0)
+            filt.add_qc_filter('SST', 'freez',  0)
+            filt.add_qc_filter('SST', 'clim',   0)
+            filt.add_qc_filter('SST', 'nonorm', 0)
+    
             reps.add_filter(filt)
 
-            reps.bayesian_buddy_check('AT', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
-            reps.mds_buddy_check('AT', sst_pentad_stdev, parameters['mds_buddy_check'])
-
-    #DPT buddy check
-            filt = ex.QC_filter()
-            filt.add_qc_filter('DPT', 'hum_blacklist', 0)
-            filt.add_qc_filter('POS', 'date',   0)
-            filt.add_qc_filter('POS', 'time',   0)
-            filt.add_qc_filter('POS', 'pos',    0)
-            filt.add_qc_filter('POS', 'blklst', 0)
-            filt.add_qc_filter('POS', 'trk',    0)
-            filt.add_qc_filter('DPT', 'noval',  0)
-            filt.add_qc_filter('DPT', 'clim',   0)
-            filt.add_qc_filter('DPT', 'nonorm', 0)
-
-            reps.add_filter(filt)
-
-            reps.mds_buddy_check('DPT', climlib.get_field('DPT', 'stdev'), parameters['mds_buddy_check'])
-
-        if nrt:
-            reps.write_output(parameters['runid'], nrt_dir, year, month, Test)
-        else:
-            reps.write_output(parameters['runid'], icoads_dir, year, month, Test)
+            for one_ship in reps.get_one_platform_at_a_time():
+                if len(one_ship) > 0:
+                    one_ship.write_output(parameters['runid'], extdir, year, month)
 
         del reps
 

@@ -1,7 +1,12 @@
 import dateutil.parser
 
 class NRT:
-    
+  
+    '''
+    A class for reading and writing CMEMS NRT data from NetCDF files and 
+    outputting data in the IMMA like format used by marine QC
+    '''
+  
     def __init__(self):
         self.data = {}           # Dictionary to hold the parameter values
         self.data['ID'] = None
