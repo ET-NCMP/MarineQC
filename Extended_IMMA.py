@@ -16,6 +16,8 @@ import spherical_geometry as sph
 import track_check as tc
 import CalcHums
 
+VARLIST = ['YR','MO','DY','HR','LAT','LON','DS','VS','SLP','AT','AT2','SST','DCK','PT','SID','DPT','SHU', 'VAP', 'CRH', 'CWB', 'DPD']
+
 def datestring(year, month, day):
     '''
     Write year month and day in iso format
@@ -259,8 +261,16 @@ class ClimVariable:
     average and an optional standard deviation.
     '''
     def __init__(self, clim, stdev=None):
-        self.clim = clim
-        self.stdev = stdev
+        
+        if clim is None:
+            self.clim = clim
+        else:
+            self.clim = float(clim)
+        
+        if stdev is None:
+            self.stdev = stdev
+        else:
+            self.stdev = float(stdev) 
 
     def getclim(self, intype='clim'):
         '''
@@ -286,9 +296,9 @@ class ClimVariable:
         '''
         assert intype in ['clim', 'stdev'], 'unknown type '+str(intype)
         if intype == 'stdev':
-            self.stdev = clim
+            self.stdev = float(clim)
         elif intype == 'clim':
-            self.clim = clim
+            self.clim = float(clim)
 
 class MarineReport:
 
@@ -300,11 +310,21 @@ class MarineReport:
 
     def __init__(self, imma_rec):
 
-        self.data = {}
+#['YR','MO','DY','HR','LAT','LON','DS','VS','SLP','AT','SST','DCK','PT','SID','DPT']
+        self.data = np.zeros(len(VARLIST))
+        self.data += np.nan
+        if 'ID' in imma_rec.data:
+            self.id = imma_rec.data['ID']
+        else:
+            self.id = None
+        if 'UID' in imma_rec.data:
+            self.uid = imma_rec.data['UID']
+        else:
+            self.uid = None
         #dictionary copied element by element to reduce memory usage
         for k in imma_rec.data:
-            if imma_rec.data[k] != None:
-                self.data[k] = imma_rec.data[k]
+            if imma_rec.data[k] != None and k in VARLIST:
+                self.setvar(k, imma_rec.data[k])
 
         self.qc = {}
         self.climate_variables = {}
@@ -401,19 +421,22 @@ class MarineReport:
         Used to set the internal julian day time in the marine report. This might need to be 
         updated if any of the time variables are changed.
         '''
-        mlen = qc.month_lengths(self.getvar('YR'))
-        if (self.getvar('HR') != None and 
-            self.getvar('DY') != None and 
-            self.getvar('DY') > 0 and 
-            self.getvar('DY') <= mlen[self.getvar('MO')-1]):
-            rounded_hour = int(math.floor(self.getvar('HR')))
-            rounded_minute = int(math.floor(60 * 
-                                            (self.getvar('HR')-rounded_hour)))
-            self.dt = datetime(self.getvar('YR'), 
-                               self.getvar('MO'), 
-                               int(self.getvar('DY')), 
-                               rounded_hour, 
-                               rounded_minute)
+        if self.getvar('YR') != None:
+            mlen = qc.month_lengths(self.getvar('YR'))
+            if (self.getvar('HR') != None and 
+                self.getvar('DY') != None and 
+                self.getvar('DY') > 0 and 
+                self.getvar('DY') <= mlen[self.getvar('MO')-1]):
+                rounded_hour = int(math.floor(self.getvar('HR')))
+                rounded_minute = int(math.floor(60 * 
+                                                (self.getvar('HR')-rounded_hour)))
+                self.dt = datetime(self.getvar('YR'), 
+                                   self.getvar('MO'), 
+                                   int(self.getvar('DY')), 
+                                   rounded_hour, 
+                                   rounded_minute)
+            else:
+                self.dt = None
         else:
             self.dt = None
 
@@ -579,7 +602,7 @@ class MarineReport:
         :type varname: string
         '''
         self.ext[varname] = varvalue
-    
+
     def setvar(self, varname, varvalue):
         '''
         Set a particular variable in the data
@@ -587,7 +610,14 @@ class MarineReport:
         :param varname: variable name to be set in the extended data
         :type varname: string
         ''' 
-        self.data[varname] = varvalue
+        if varname == 'ID':
+            self.id = varvalue
+        elif varname == 'UID':
+            self.uid = varvalue
+        else:
+            i = VARLIST.index(varname)
+            self.data[i] = varvalue
+
         if varname in ['YR', 'DY', 'HR']:
             self.calculate_dt()
 
@@ -601,10 +631,17 @@ class MarineReport:
         :return: the named variable from either the data or extended data
         :rtype: depends on the variable
         '''
-        if not(varname in self.data or varname in self.ext):
+        if varname == 'ID': return self.id
+        if varname == 'UID': return self.uid
+        if not(varname in VARLIST or varname in self.ext):
             return None
-        if varname in self.data:
-            return self.data[varname]
+        if varname in VARLIST:
+            i = VARLIST.index(varname)
+            if np.isnan(self.data[i]): return None
+            if varname in ['YR','MO','DY','DS','VS','DCK','PT','SID']:   
+                return int(self.data[i])  #these are integer data types
+            else:
+                return self.data[i]
         else:
             return self.ext[varname]
 
@@ -625,7 +662,7 @@ class MarineReport:
         assert set_value in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \
         "value not in 0-9"+str(set_value)
         assert ((qc_type in self.special_qc_types) or 
-                (qc_type in self.data)), "unknown data type "+qc_type
+                (qc_type in VARLIST)), "unknown data type "+qc_type
 
         self.qc[qc_type + specific_flag] = set_value
     
@@ -664,18 +701,18 @@ class MarineReport:
 
     def printvar(self, var):
         '''Print a variable substituting -32768 for Nones'''
-        if var in self.data:
+        if var in VARLIST:
             return int(pvar(self.getvar(var), -32768, 1.0))
         else:
             return int(pvar(-32768, -32768, 1.0))
 
     def printsim(self):
         '''Print the WMO pub47 field'''
-        if 'SIM' in self.data:
-            if self.data['SIM'] == None:
+        if 'SIM' in VARLIST:
+            if self.getvar('SIM') == None:
                 return 'Missing'
             else:
-                return self.data['SIM']
+                return self.getvar('SIM')
         else:
             return 'None'
 
@@ -1089,7 +1126,7 @@ class MarineReportQC(MarineReport):
         '''
         if (self.getvar('DCK') == 701 and self.getvar('YR') < 1860 and 
             self.getvar('HR') == None):
-            self.data['HR'] = 0
+            self.setvar('HR', 0)
             self.calculate_dt()
 
     def do_position_check(self):
@@ -2123,11 +2160,11 @@ class Voyage:
         syr = str(year)
         smn = "%02d" % (month)
         for var in allvarnames:
-            outfilename = var+'_qc_'+syr+smn+'_'+self.reps[0].data['ID']+'_'+runid+'.csv'
+            outfilename = var+'_qc_'+syr+smn+'_'+self.reps[0].getvar('ID')+'_'+runid+'.csv'
             outfile = open(icoads_dir+'/'+outfilename, 'w')           
             outfile.write(self.reps[0].print_qc_block(var, allvarnames[var], header=True))
             for rep in self.reps:
-                if rep.data['YR'] == year and rep.data['MO'] == month:
+                if rep.getvar('YR') == year and rep.getvar('MO') == month:
                     outfile.write(rep.print_qc_block(var, allvarnames[var], header=False))
                     count_write += 1
             outfile.close()
@@ -2143,7 +2180,7 @@ class Voyage:
         syr = str(year)
         smn = "%02d" % (month)
 
-        outfilename = 'Variables_'+syr+smn+'_'+self.reps[0].data['ID']+'_'+runid+'.csv'
+        outfilename = 'Variables_'+syr+smn+'_'+self.reps[0].getvar('ID')+'_'+runid+'.csv'
         outfile = open(icoads_dir+outfilename, 'w')
         varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
                     ['AT'], ['AT', 'anom'],
@@ -2153,7 +2190,7 @@ class Voyage:
                     ['OSTIA'], ['ICE'], ['BGVAR']]
         outfile.write(self.reps[0].print_variable_block(varnames, header=True))
         for rep in self.reps:
-            if rep.data['YR'] == year and rep.data['MO'] == month:
+            if rep.getvar('YR') == year and rep.getvar('MO') == month:
                 outfile.write(rep.print_variable_block(varnames))
                 count_write += 1
         outfile.close()
@@ -2179,7 +2216,7 @@ class Voyage:
             
 #            outfile.close()
 
-        print "wrote out ", count_write, " obs for",self.reps[0].data['ID'] 
+        print "wrote out ", count_write, " obs for",self.reps[0].getvar('ID') 
 
         
         return
@@ -2789,7 +2826,7 @@ class Deck:
             
             outfile.write(self.reps[0].print_qc_block(var, allvarnames[var], header=True))
             for rep in self.reps:
-                if rep.data['YR'] == year and rep.data['MO'] == month:
+                if rep.getvar('YR') == year and rep.getvar('MO') == month:
                     outfile.write(rep.print_qc_block(var, allvarnames[var], header=False))
                     count_write += 1
            
@@ -2820,7 +2857,7 @@ class Deck:
 
         outfile.write(self.reps[0].print_variable_block(varnames, header=True))
         for rep in self.reps:
-            if rep.data['YR'] == year and rep.data['MO'] == month:
+            if rep.getvar('YR') == year and rep.getvar('MO') == month:
                 outfile.write(rep.print_variable_block(varnames))
                 count_write += 1
         outfile.close()
@@ -2859,7 +2896,7 @@ class Deck:
 
         outfile.write(self.reps[0].print_variable_block(varnames, header=True))
         for rep in self.reps:
-            if rep.data['YR'] == year and rep.data['MO'] == month:
+            if rep.getvar('YR') == year and rep.getvar('MO') == month:
                 outfile.write(rep.print_variable_block(varnames))
                 count_write += 1
         outfile.close()

@@ -389,12 +389,15 @@ def main(argv):
             filt.add_qc_filter('SST', 'freez',  0)
             filt.add_qc_filter('SST', 'clim',   0)
             filt.add_qc_filter('SST', 'nonorm', 0)
-    
+
             reps.add_filter(filt)
 
+            idfile = open(extdir+'/ID_file.txt','w')
             for one_ship in reps.get_one_platform_at_a_time():
                 if len(one_ship) > 0:
+                    idfile.write(one_ship.getrep(0).getvar('ID')+'\n')
                     one_ship.write_output(parameters['runid'], extdir, year, month)
+            idfile.close()
 
         del reps
 
