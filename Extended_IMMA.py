@@ -22,6 +22,15 @@ VARLIST = ['YR', 'MO', 'DY', 'HR', 'LAT', 'LON', 'DS', 'VS', 'SLP', 'AT', 'AT2',
 
 
 def safe_filename(infilename):
+    """
+    Take a filename and remove special characters like the asterisk and slash which mess things up. Warning: if you
+    pass a directory path to this function, it will remove the slashes. Do not do that.
+
+    :param infilename: filename to be processed.
+    :type infilename: string
+    :return: string with asterisk and slash replaced by underscores
+    :rtype: string
+    """
     safename = infilename.replace('/', '_')
     safename = safename.replace('*', '_')
 
@@ -208,8 +217,7 @@ class ClimatologyLibrary:
 
 class QC_filter:
     """
-    A simple QC filter that can have specific tests added to it, 
-    which are then used to filter lists of MarineReports
+    A simple QC filter that can have specific tests added to it, which are then used to filter lists of MarineReports
     """
 
     def __init__(self):
@@ -248,10 +256,10 @@ class QC_filter:
         Split a list of MarineReports into those that pass and those that fail 
         the QC filter.
         
-        :param reps: the list of MarineReports to be filtered
-        :type reps: list of MarineReports
+        :param reps: the :class:`.Deck` of MarineReports to be filtered
+        :type reps: Deck
         :return: two Decks of MarineReports, those that pass and those that fail
-        :rtype: Deck of MarineReports
+        :rtype: Deck
         
         This is not the most efficient way of doing things. It is now possible to 
         add a :class:`.QC_filter` to a :class:`.Deck`, obviating the need to split 
@@ -281,6 +289,14 @@ class ClimVariable:
     """
 
     def __init__(self, clim, stdev=None):
+        """
+        Initialise a :class:`.ClimVariable`
+
+        :param clim: climatological average
+        :param stdev: climatological standard deviation
+        :type clim: float
+        :type stdev: float
+        """
 
         if clim is None:
             self.clim = clim
@@ -746,7 +762,7 @@ class MarineReport:
 
     def print_longform_report(self):
         """
-        A simple (ha ha) routine to print out the marine report in old-fashioned fixed-width ascii style.
+        A simple routine to print out the marine report in old-fashioned fixed-width ascii style.
         """
 
         day = int(pvar(self.getvar('DY'), -32768, 1))
@@ -873,7 +889,7 @@ class MarineReport:
 
     def print_report(self):
         """
-        A simple (ha ha) routine to print out the marine report in old-fashioned fixed-width ascii style.
+        A simple routine to print out the marine report in old-fashioned fixed-width ascii style.
         """
 
         day = int(pvar(self.getvar('DY'), -32768, 1))
@@ -974,7 +990,11 @@ class MarineReport:
                 repout = [""]
 
             for var in varnames:
-                repout.append(var[0])
+                if len(var) > 1:
+                    joinedvar = "_".join(var)
+                else:
+                    joinedvar = var[0]
+                repout.append(joinedvar)
                 repout.append(",")
         else:
             if printuid:
@@ -1426,6 +1446,8 @@ class Voyage:
         
         :param position: the position the desired report occupies in the list
         :type position: integer
+        :return: MarineReport at required index in the Voyage
+        :rtype: MarineReport
         """
         return self.reps[position]
 
@@ -1433,8 +1455,8 @@ class Voyage:
         """
         Get the last report in the Voyage
         
-        :return: last ExtendedMarineReport in the Voyage
-        :rtype: ExtendedMarineReport
+        :return: last MarineReport in the Voyage
+        :rtype: MarineReport
         """
         nreps = len(self.reps)
         return self.reps[nreps - 1]
@@ -1448,7 +1470,7 @@ class Voyage:
         :param value: the variable value
         :type position: integer
         :type varname: string
-        :type value: whatever
+        :type value: float or string
         """
         return self.reps[position].setvar(varname, value)
 
@@ -1460,6 +1482,8 @@ class Voyage:
         :param varname: the variable name to recover
         :type position: integer
         :type varname: string
+        :return: variable value at required index
+        :rtype: string, float
         """
         return self.reps[position].getvar(varname)
 
@@ -1789,9 +1813,9 @@ class Voyage:
         for i in range(1, nobs):
 
             if (self.getvar(i, 'vsi') is not None and
-                    self.getvar(i - 1, 'vsi') is not None and
+                    self.getvar(i-1, 'vsi') is not None and
                     self.getvar(i, 'dsi') is not None and
-                    self.getvar(i - 1, 'dsi') is not None and
+                    self.getvar(i-1, 'dsi') is not None and
                     self.getvar(i, 'time_diff') is not None):
 
                 # get increment from initial position
@@ -3131,7 +3155,7 @@ class Deck:
                                'repsat', 'round', 'hardlimit'],
                        'SLP': ['bud', 'clim', 'nonorm', 'noval', 'rep']}
 
-        self.write_qc(runid, icoads_dir, year, month, allvarnames, Test=test)
+        self.write_qc(runid, icoads_dir, year, month, allvarnames, test=test)
 
         print("wrote out {} obs".format(count_write))
 
@@ -3172,7 +3196,7 @@ class Deck:
                                'repsat', 'round']
                        }
 
-        self.write_qc(runid, icoads_dir, year, month, allvarnames, Test=test)
+        self.write_qc(runid, icoads_dir, year, month, allvarnames, test=test)
 
         print("wrote out {} obs".format(count_write))
 

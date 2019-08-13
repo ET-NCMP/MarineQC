@@ -277,7 +277,14 @@ class TestNpSuperOb(unittest.TestCase):
         g.take_average()
         temp_anom, temp_nobs = g.get_neighbour_anomalies([2, 2, 2], 180, 89, 0)
 
-        pass
+        self.assertEqual(len(temp_anom), 2)
+        self.assertEqual(len(temp_nobs), 2)
+
+        self.assertIn(4.5, temp_anom)
+        self.assertIn(1.5, temp_anom)
+
+        self.assertEqual(temp_nobs[0], 1)
+        self.assertEqual(temp_nobs[1], 1)
 
     def test_add_one_maxes_limits(self):
 
@@ -614,7 +621,7 @@ class TestMarineReport(unittest.TestCase):
 
     def test_print_variable_block(self):
         checkstring = 'A642D2,2003-12-01,67,"AAAAAAAAA",2003,12,1,0.0,0.0,0.0,10.0,\N,5.0,\N,11.0,\N,1023.0,\N\n'
-        checkheader = 'UID,DATE,PENTAD,ID,YR,MO,DY,HR,LAT,LON,AT,AT,SST,SST,DPT,DPT,SLP,SLP\n'
+        checkheader = 'UID,DATE,PENTAD,ID,YR,MO,DY,HR,LAT,LON,AT,AT_anom,SST,SST_anom,DPT,DPT_anom,SLP,SLP_anom\n'
         varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
                     ['AT'], ['AT', 'anom'],
                     ['SST'], ['SST', 'anom'],

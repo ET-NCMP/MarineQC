@@ -9,7 +9,7 @@ import sys
 import os
 
 
-class easy_imma:
+class EasyImma:
     """
     This is a quick and dirty class to mimic the IMMA data structure for easy reading
     of the CSV files
@@ -131,6 +131,8 @@ def main(argv):
     edge = args.edge
     runmonthid = args.runmonthid
 
+    oldqc = True
+
     target_id = args.id
     while len(target_id) < 9:
         target_id += ' '
@@ -158,9 +160,9 @@ def main(argv):
         sm = "{:02}".format(month)
 
         # input data files
-        filename = out_dir + '/' + sy + '/' + sm + '/Variables_' + sy + sm + '_' + target_id + '_standard.csv'
-        posqc_filename = out_dir + '/' + sy + '/' + sm + '/POS_qc_' + sy + sm + '_' + target_id + '_standard.csv'
-        sstqc_filename = out_dir + '/' + sy + '/' + sm + '/SST_qc_' + sy + sm + '_' + target_id + '_standard.csv'
+        filename = "{0}/{1}/{2}/Variables_{1}{2}_{3}_{4}.csv".format(out_dir, sy, sm, target_id, parameters['runid'])
+        posqc_filename = "{0}/{1}/{2}/POS_qc_{1}{2}_{3}_{4}.csv".format(out_dir, sy, sm, target_id, parameters['runid'])
+        sstqc_filename = "{0}/{1}/{2}/SST_qc_{1}{2}_{3}_{4}.csv".format(out_dir, sy, sm, target_id, parameters['runid'])
 
         # check if any data exists for this month before continuing
         if not (os.path.isfile(filename) or
@@ -191,7 +193,7 @@ def main(argv):
             message = 'file lengths do not match'
             file_fail = True
         if file_fail:
-            raise UserWarning('problem with files for {}/{}: '.format(sy, sm, message))
+            raise UserWarning('problem with files for {}/{}: '.format(sy, sm), message)
 
         # read in ID data
         try:
@@ -209,7 +211,7 @@ def main(argv):
                 reader = csv.DictReader(csvfile, fieldnames=headers)
                 nrep = 0
                 for line in reader:
-                    rep = ex.MarineReportQC(easy_imma(line))
+                    rep = ex.MarineReportQC(EasyImma(line))
                     # variables not in the Extended_IMMA.py VARLIST are not added by the above step,
                     # so OSTIA, ICE and BGVAR variables now need adding manually
                     rep.setext('OSTIA', None if line['OSTIA'] is None else float(line['OSTIA']))
@@ -297,8 +299,12 @@ def main(argv):
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
     print("passing " + str(len(v_filt)) + " to aground check")
-    v_filt.new_buoy_aground_check(parameters['new_buoy_aground_check'],
+    if oldqc:
+        v_filt.buoy_aground_check(parameters['buoy_aground_check'],
                                   False)  # raises AssertionError if check inputs are invalid
+    else:
+        v_filt.new_buoy_aground_check(parameters['new_buoy_aground_check'],
+                                      False)  # raises AssertionError if check inputs are invalid
 
     # ---picked up QC---
 
@@ -308,14 +314,20 @@ def main(argv):
     filt.add_qc_filter('POS', 'time', 0)
     filt.add_qc_filter('POS', 'pos', 0)
     filt.add_qc_filter('POS', 'blklst', 0)  # includes rejection of (lon,lat)=(0,0)
+    if oldqc:
+        filt.add_qc_filter('POS', 'iquam_track', 0)  # NOTE only use this for original buoy speed check
     v_filt = ex.Voyage()
     for rep in rep_list:
         if filt.test_report(rep) == 0:
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
     print("passing " + str(len(v_filt)) + " to picked-up check")
-    v_filt.new_buoy_speed_check(parameters['IQUAM_track_check'], parameters['new_buoy_speed_check'],
+    if oldqc:
+        v_filt.buoy_speed_check(parameters['buoy_speed_check'],
                                 False)  # raises AssertionError if check inputs are invalid
+    else:
+        v_filt.new_buoy_speed_check(parameters['IQUAM_track_check'], parameters['new_buoy_speed_check'],
+                                    False)  # raises AssertionError if check inputs are invalid
 
     # ---sst tail QC---
 
@@ -378,15 +390,24 @@ def main(argv):
     # stored in directory corresponding to last month in the chunk
     if 'new' in edge or 'regular' in edge:
         extdir = safe_make_dir(out_dir, args.yr2, args.mn2)
-        voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        if oldqc:
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        else:
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
 
     if 'start_edge_case' in edge:
         extdir = safe_make_edge_dir(out_dir, args.yr1, args.mn1, args.yr2, args.mn2, 'start_edge_case', runmonthid)
-        voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        if oldqc:
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        else:
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
 
     if 'end_edge_case' in edge:
         extdir = safe_make_edge_dir(out_dir, args.yr1, args.mn1, args.yr2, args.mn2, 'end_edge_case', runmonthid)
-        voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        if oldqc:
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+        else:
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
 
 
 #    return voy
