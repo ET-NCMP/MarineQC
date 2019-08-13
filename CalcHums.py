@@ -1,4 +1,4 @@
-'''
+"""
 The CalcHums module contains a set of functions for calculating humidity
 variables. At present it can only cope with scalars, not arrays.
 
@@ -29,12 +29,13 @@ decimal place.
 Otherwise - set roundit=False
 
 Written by Kate Willett 7th Feb 2016
-'''
+"""
 
 import numpy as np
 
+
 def vap(td, t, p, roundit=True):
-    '''
+    """
     This function calculates a vapour pressure scalar or array
     from a scalar or array of dew point temperature and returns it.
     It requires a sea (station actually but sea level ok for marine data)
@@ -76,36 +77,35 @@ def vap(td, t, p, roundit=True):
     e = vap(10.,15.,1013.)
     e = 12.3
 
-    '''
-    
-    if td == None or t == None or p == None:
+    """
+
+    if td is None or t is None or p is None:
         return None
 
-    e = None
-
-    # Calculate pseudo-e assuming wet bulb to calculate a 
-    #pseudo-wet bulb (see wb below)
-    f = 1 + (7. * (10**(-4.))) + ((3.46 * (10**(-6.))) * p)
-    e = 6.1121 * f * np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
+    # Calculate pseudo-e assuming wet bulb to calculate a
+    # pseudo-wet bulb (see wb below)
+    f = 1 + (7. * (10 ** (-4.))) + ((3.46 * (10 ** (-6.))) * p)
+    e = 6.1121 * f * np.exp(((18.729 - (td / 227.3)) * td) / (257.87 + td))
 
     a = 0.000066 * p
-    b = ((409.8 * e) / ((td + 237.3)**2))
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
     w = (((a * t) + (b * td)) / (a + b))
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3. * (10**(-4.))) + ((4.18 * (10**(-6.))) * p)
+    if w <= 0.0:
+        f = 1 + (3. * (10 ** (-4.))) + ((4.18 * (10 ** (-6.))) * p)
         e = 6.1115 * f * np.exp(((23.036 - (td / 333.7)) * td) / (279.82 + td))
-	
-    if (roundit == True):
-        e = round(e * 10) /10.	
+
+    if roundit:
+        e = round(e * 10) / 10.
 
     return e
 
+
 def vap_from_sh(sh, p, roundit=True):
-    '''
+    """
     This function calculates a vapour pressure scalar or array
     from a scalar or array of specific humidity and pressure and returns it.
     It requires a sea (station actually but sea level ok for marine data)
@@ -137,18 +137,18 @@ def vap_from_sh(sh, p, roundit=True):
     e = vap_from_sh(7.6,1013.)
     e = 12.3
 
-    '''
-    e = None
+    """
 
     e = ((sh / 1000.) * p) / (0.622 + (0.378 * (sh / 1000.)))
 
-    if (roundit == True):
-        e = round(e * 10.) / 10.	 
-	    
+    if roundit:
+        e = round(e * 10.) / 10.
+
     return e
 
+
 def sh(td, t, p, roundit=True):
-    '''
+    """
     This function calculates a specific humidity scalar or array
     from a scalar or array of vapour pressure and returns it.
     It requires a sea (station actually but sea level ok for marine data)
@@ -171,10 +171,10 @@ def sh(td, t, p, roundit=True):
     t = dry bulb temperature in degrees C (array or scalar)    
     p = pressure at observation level in hPa (array or scalar - can be scalar even if others are arrays)
     GIVES: e = vapour pressure in hPa (array or scalar) - see vap()
-	
+
     Outputs:
     q = specific humidity in g/kg (array or scalar)
-	
+
     Ref:
     Peixoto & Oort, 1996, Ross & Elliott, 1996
     Peixoto, J. P. and Oort, A. H.: The climatology of relative humidity in the atmosphere, J. 
@@ -184,40 +184,37 @@ def sh(td, t, p, roundit=True):
     sh = sh(10.,15.,1013.)
     sh = 7.6
 
-    '''
-    
-    if td == None or t == None or p == None:
+    """
+
+    if td is None or t is None or p is None:
         return None
-    
-    q = None
 
-    e = None
+    # Calculate pseudo-e assuming wet bulb to
+    # calculate a pseudo-wet bulb (see wb below)
+    f = 1 + (7. * (10 ** (-4.))) + ((3.46 * (10 ** (-6.))) * p)
+    e = 6.1121 * f * np.exp(((18.729 - (td / 227.3)) * td) / (257.87 + td))
 
-    # Calculate pseudo-e assuming wet bulb to 
-    #calculate a pseudo-wet bulb (see wb below)
-    f = 1 + (7.*(10**(-4.))) + ((3.46*(10**(-6.)))*p)
-    e = 6.1121*f*np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
-
-    a = 0.000066*p
-    b = ((409.8*e) / ((td + 237.3)**2))
-    w = (((a*t) + (b*td)) / (a + b))
+    a = 0.000066 * p
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
+    w = (((a * t) + (b * td)) / (a + b))
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3.*(10**(-4.))) + ((4.18*(10**(-6.)))*p)
-        e = 6.1115*f*np.exp(((23.036 - (td/333.7))*td) / (279.82+td))
+    if w <= 0.0:
+        f = 1 + (3. * (10 ** (-4.))) + ((4.18 * (10 ** (-6.))) * p)
+        e = 6.1115 * f * np.exp(((23.036 - (td / 333.7)) * td) / (279.82 + td))
 
-    q = 1000.*((0.622*e) / (p - ((1 - 0.622)*e)))
+    q = 1000. * ((0.622 * e) / (p - ((1 - 0.622) * e)))
 
-    if (roundit == True):
-        q = round(q*10.)/10.
-	
+    if roundit:
+        q = round(q * 10.) / 10.
+
     return q
 
+
 def sh_from_vap(e, p, roundit=True):
-    '''
+    """
     This function calculates a specific humidity scalar or array
     from a scalar or array of vapour pressure and returns it.
     It requires a sea (station actually but sea level ok for marine data)
@@ -237,10 +234,10 @@ def sh_from_vap(e, p, roundit=True):
     e = vapour pressure in hPa (array or scalar)    
     p = pressure at observation level in hPa (array or scalar - can be scalar even if others are arrays)
     GIVES: e = vapour pressure in hPa (array or scalar) - see vap()
-	
+
     Outputs:
     q = specific humidity in g/kg (array or scalar)
-	
+
     Ref:
     Peixoto & Oort, 1996, Ross & Elliott, 1996
     Peixoto, J. P. and Oort, A. H.: The climatology of relative humidity in the atmosphere, J. 
@@ -250,18 +247,18 @@ def sh_from_vap(e, p, roundit=True):
     sh = sh(10.,15.,1013.)
     sh = 7.6
 
-    '''
-    q = None
+    """
 
-    q = 1000.*((0.622*e) / (p - ((1 - 0.622)*e)))
+    q = 1000. * ((0.622 * e) / (p - ((1 - 0.622) * e)))
 
-    if (roundit == True):
-        q = round(q*10.)/10.    
-    	
+    if roundit:
+        q = round(q * 10.) / 10.
+
     return q
 
+
 def rh(td, t, p, roundit=True):
-    '''
+    """
     This function calculates a relative humidity scalar or array
     from a scalar or array of vapour pressure and temperature and returns 
     it. It calculates the saturated vapour pressure from t.
@@ -300,59 +297,55 @@ def rh(td, t, p, roundit=True):
     rh = rh(10.,15.,1013.)
     rh = 72.0
     
-    '''
+    """
 
-    if td == None or t == None or p == None:
+    if td is None or t is None or p is None:
         return None
 
-    r = None
-    e = None
+    # Calculate pseudo-e assuming wet bulb to calculate a
+    # pseudo-wet bulb (see wb below)
+    f = 1 + (7. * (10 ** (-4.))) + ((3.46 * (10 ** (-6.))) * p)
+    e = 6.1121 * f * np.exp(((18.729 - (td / 227.3)) * td) / (257.87 + td))
 
-    # Calculate pseudo-e assuming wet bulb to calculate a 
-    #pseudo-wet bulb (see wb below)
-    f = 1 + (7.*(10**(-4.))) + ((3.46*(10**(-6.)))*p)
-    e = 6.1121*f*np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
-
-    a = 0.000066*p
-    b = ((409.8*e) / ((td + 237.3)**2))
-    w = (((a*t) + (b*td)) / (a + b))
+    a = 0.000066 * p
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
+    w = (((a * t) + (b * td)) / (a + b))
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3.*(10**(-4.))) + ((4.18*(10**(-6.)))*p)
-        e = 6.1115*f*np.exp(((23.036 - (td/333.7))*td) / (279.82+td))
+    if w <= 0.0:
+        f = 1 + (3. * (10 ** (-4.))) + ((4.18 * (10 ** (-6.))) * p)
+        e = 6.1115 * f * np.exp(((23.036 - (td / 333.7)) * td) / (279.82 + td))
 
-    es = None
-
-    # Calculate pseudo-es assuming wet bulb to calculate 
-    #a pseudo-wet bulb (see wb below)
+    # Calculate pseudo-es assuming wet bulb to calculate
+    # a pseudo-wet bulb (see wb below)
     # USING t INSTEAD OF td FOR SATURATED VAPOUR PRESSURE 
-    #(WET BULB T = T AT SATURATION)
-    f = 1 + (7.*(10**(-4.))) + ((3.46*(10**(-6.)))*p)
-    es = 6.1121*f*np.exp(((18.729 - (t/227.3))*t) / (257.87 + t))
+    # (WET BULB T = T AT SATURATION)
+    f = 1 + (7. * (10 ** (-4.))) + ((3.46 * (10 ** (-6.))) * p)
+    es = 6.1121 * f * np.exp(((18.729 - (t / 227.3)) * t) / (257.87 + t))
 
-    a = 0.000066*p
-    b = ((409.8*es) / ((t + 237.3)**2)) # t here rather than td because for es, t==td
-    w = (((a*t) + (b*t)) / (a + b)) # second t is t here rather than td because for ex, t==td
+    a = 0.000066 * p
+    b = ((409.8 * es) / ((t + 237.3) ** 2))  # t here rather than td because for es, t==td
+    w = (((a * t) + (b * t)) / (a + b))  # second t is t here rather than td because for ex, t==td
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3.*(10**(-4.))) + ((4.18*(10**(-6.)))*p)
-        es = 6.1115*f*np.exp(((23.036 - (t/333.7))*t) / (279.82+t))
-	     	
-    r = (e / es)*100.
+    if w <= 0.0:
+        f = 1 + (3. * (10 ** (-4.))) + ((4.18 * (10 ** (-6.))) * p)
+        es = 6.1115 * f * np.exp(((23.036 - (t / 333.7)) * t) / (279.82 + t))
 
-    if (roundit == True):
-        r = round(r*10.)/10.
-	
-    return r 
+    r = (e / es) * 100.
+
+    if roundit:
+        r = round(r * 10.) / 10.
+
+    return r
+
 
 def wb(td, t, p, roundit=True):
-    '''
+    """
     This function calculates a wet bulb temperature scalar or array
     from a scalar or array of vapour pressure and temperature and
     dew point temperature and returns it. 
@@ -393,42 +386,39 @@ def wb(td, t, p, roundit=True):
     wb = wb(10.,15.,1013)
     wb = 12.2
 
-    '''
-    if td == None or t == None or p == None:
+    """
+    if td is None or t is None or p is None:
         return None
-    
-    w = None
-
-    e = None
 
     # Calculate pseudo-e assuming wet bulb to calculate a pseudo-wet bulb (see wb below)
-    f = 1 + (7.*(10**(-4.))) + ((3.46*(10**(-6.)))*p)
-    e = 6.1121*f*np.exp(((18.729 - (td/227.3))*td) / (257.87 + td))
+    f = 1 + (7. * (10 ** (-4.))) + ((3.46 * (10 ** (-6.))) * p)
+    e = 6.1121 * f * np.exp(((18.729 - (td / 227.3)) * td) / (257.87 + td))
 
-    a = 0.000066*p
-    b = ((409.8*e) / ((td + 237.3)**2))
-    w = (((a*t) + (b*td)) / (a + b))
+    a = 0.000066 * p
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
+    w = (((a * t) + (b * td)) / (a + b))
 
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate e with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3.*(10**(-4.))) + ((4.18*(10**(-6.)))*p)
-        e = 6.1115*f*np.exp(((23.036 - (td/333.7))*td) / (279.82+td))
+    if w <= 0.0:
+        f = 1 + (3. * (10 ** (-4.))) + ((4.18 * (10 ** (-6.))) * p)
+        e = 6.1115 * f * np.exp(((23.036 - (td / 333.7)) * td) / (279.82 + td))
 
     # Now calculate a slightly better w
-    a = 0.000066*p
-    b = ((409.8*e) / ((td + 237.3)**2))
+    a = 0.000066 * p
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
 
-    w = (((a*t) + (b*td)) / (a + b))
+    w = (((a * t) + (b * td)) / (a + b))
 
-    if (roundit == True):
-        w = round(w*10.)/10.
-	
-    return w 
+    if roundit:
+        w = round(w * 10.) / 10.
+
+    return w
+
 
 def dpd(td, t, roundit=True):
-    '''
+    """
     This function calculates a dew point depression scalar or array
     from a scalar or array of temperature and dew point temperature and returns it.
     
@@ -454,22 +444,21 @@ def dpd(td, t, roundit=True):
     dpd = dpd(10..,15.)
     dpd = 5.0
 
-    '''
-    
-    if td == None or t == None:
+    """
+
+    if td is None or t is None:
         return None
-    
-    dp = None
 
     dp = t - td
 
-    if (roundit == True):
-        dp = round(dp*10.)/10.
-		
-    return dp 
+    if roundit:
+        dp = round(dp * 10.) / 10.
+
+    return dp
+
 
 def td_from_vap(e, p, t, roundit=True):
-    '''
+    """
     This function calculates a dew point depression scalar or array
     from a scalar or array of vapour pressure and pressure and returns it.
     It also requires temperature to check whether the wet bulb temperature 
@@ -507,36 +496,35 @@ def td_from_vap(e, p, t, roundit=True):
     td = td_from_vap(12.3,1013.,15.)
     td = 10.0
 
-    '''
-    td = None
-    
+    """
+
     # First calculate an estimated dew point T
-    f = 1 + (7.*10.**(-4.)) + ((3.46*10.**(-6.)) * p)
+    f = 1 + (7. * 10. ** (-4.)) + ((3.46 * 10. ** (-6.)) * p)
 
     a = 1
-    b = (227.3 * np.log(e / (6.1121*f))) - (18.729 * 227.3)
+    b = (227.3 * np.log(e / (6.1121 * f))) - (18.729 * 227.3)
     c = (257.87 * 227.3 * np.log(e / (6.1121 * f)))
 
-    td = (-b - np.sqrt(b**2 - (4 * a * c))) / (2 * a)
+    td = (-b - np.sqrt(b ** 2 - (4 * a * c))) / (2 * a)
 
     # Now calculate an estimated wet bulb T
     a = 0.000066 * p
-    b = ((409.8 * e) / ((td + 237.3)**2))
+    b = ((409.8 * e) / ((td + 237.3) ** 2))
     w = (((a * t) + (b * td)) / (a + b))
-    
+
     # Now test for whether pseudo-wetbulb is above or below/equal to zero
     # to establish whether to calculate td with respect to ice or water
     # recalc if ice
-    if (w <= 0.0):
-        f = 1 + (3.*10.**(-4.)) + ((4.18*10.**(-6.)) * p)
+    if w <= 0.0:
+        f = 1 + (3. * 10. ** (-4.)) + ((4.18 * 10. ** (-6.)) * p)
 
         a = 1
         b = (333.7 * np.log(e / (6.1115 * f))) - (23.036 * 333.7)
         c = (279.82 * 333.7 * np.log(e / (6.1115 * f)))
 
-        td = (-b - np.sqrt(b**2 - (4 * a * c))) / (2 * a)
+        td = (-b - np.sqrt(b ** 2 - (4 * a * c))) / (2 * a)
 
-    if (roundit == True):
-        td = round(td*10.)/10.
-	    
+    if roundit:
+        td = round(td * 10.) / 10.
+
     return td
