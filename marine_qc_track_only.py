@@ -2,7 +2,7 @@
 """
 marine_qc.py invoked by typing::
 
-  python2.7 marine_qc.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-tracking] 
+  python2.7 marine_qc_track_only.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-tracking]
 
 This quality controls data for the chosen years. The location of the data and the locations of the climatology files are
 all to be specified in the configuration files.
@@ -145,8 +145,6 @@ def main(argv):
                     rep = ex.MarineReportQC(rec)
                     del rec
 
-                    rep.setvar('AT2', rep.getvar('AT'))
-
                     # if day has changed then read in OSTIA field if available and append SST and sea-ice fraction
                     # to the observation metadata
                     if tracking and readyear >= 1985 and rep.getvar('DY') is not None:
@@ -173,28 +171,17 @@ def main(argv):
                         rep.setext('BGVAR', ostia_bg_var.get_value_mds_style(rep.lat(), rep.lon(), rep.getvar('MO'),
                                                                              rep.getvar('DY')))
 
-                    for varname in ['SST', 'AT']:
+                    for varname in ['SST']:
                         rep_clim = climlib.get_field(varname, 'mean').get_value_mds_style(rep.lat(), rep.lon(),
                                                                                           rep.getvar('MO'),
                                                                                           rep.getvar('DY'))
                         rep.add_climate_variable(varname, rep_clim)
 
-                    for varname in ['SLP2', 'SHU', 'CRH', 'CWB', 'DPD']:
-                        rep_clim = climlib.get_field(varname, 'mean').get_value(rep.lat(), rep.lon(), rep.getvar('MO'),
-                                                                                rep.getvar('DY'))
-                        rep.add_climate_variable(varname, rep_clim)
-
-                    for varname in ['DPT', 'AT2', 'SLP']:
-                        rep_clim = climlib.get_field(varname, 'mean').get_value(rep.lat(), rep.lon(), rep.getvar('MO'),
-                                                                                rep.getvar('DY'))
-                        rep_stdev = climlib.get_field(varname, 'stdev').get_value(rep.lat(), rep.lon(),
-                                                                                  rep.getvar('MO'), rep.getvar('DY'))
-                        rep.add_climate_variable(varname, rep_clim, rep_stdev)
-
-                    rep.calculate_humidity_variables(['SHU', 'VAP', 'CRH', 'CWB', 'DPD'])
-
                     rep.perform_base_qc(parameters)
-                    rep.set_qc('POS', 'month_match', qc.month_match(year, month, rep.getvar('YR'), rep.getvar('MO')))
+                    rep.set_qc('POS', 'month_match', qc.month_match(year, month,
+                                                                    rep.getvar('YR'),
+                                                                    rep.getvar('MO')
+                                                                    ))
 
                     reps.append(rep)
                     count += 1
@@ -224,7 +211,7 @@ def main(argv):
             one_ship.find_saturated_runs(parameters['saturated_runs'])
             one_ship.find_multiple_rounded_values(parameters['multiple_rounded_values'])
 
-            for varname in ['SST', 'AT', 'AT2', 'DPT']:
+            for varname in ['SST']:
                 one_ship.find_repeated_values(parameters['find_repeated_values'],
                                               intype=varname)
 
@@ -250,58 +237,7 @@ def main(argv):
         reps.bayesian_buddy_check('SST', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
         reps.mds_buddy_check('SST', sst_pentad_stdev, parameters['mds_buddy_check'])
 
-        # NMAT buddy check
-        filt = ex.QC_filter()
-        filt.add_qc_filter('POS', 'isship', 1)  # only do ships mat_blacklist
-        filt.add_qc_filter('AT', 'mat_blacklist', 0)
-        filt.add_qc_filter('POS', 'date', 0)
-        filt.add_qc_filter('POS', 'time', 0)
-        filt.add_qc_filter('POS', 'pos', 0)
-        filt.add_qc_filter('POS', 'blklst', 0)
-        filt.add_qc_filter('POS', 'trk', 0)
-        filt.add_qc_filter('POS', 'day', 0)
-        filt.add_qc_filter('AT', 'noval', 0)
-        filt.add_qc_filter('AT', 'clim', 0)
-        filt.add_qc_filter('AT', 'nonorm', 0)
-
-        reps.add_filter(filt)
-
-        reps.bayesian_buddy_check('AT', sst_stdev_1, sst_stdev_2, sst_stdev_3, parameters)
-        reps.mds_buddy_check('AT', sst_pentad_stdev, parameters['mds_buddy_check'])
-
-        # DPT buddy check #NB no day check for this one
-        filt = ex.QC_filter()
-        filt.add_qc_filter('DPT', 'hum_blacklist', 0)
-        filt.add_qc_filter('POS', 'date', 0)
-        filt.add_qc_filter('POS', 'time', 0)
-        filt.add_qc_filter('POS', 'pos', 0)
-        filt.add_qc_filter('POS', 'blklst', 0)
-        filt.add_qc_filter('POS', 'trk', 0)
-        filt.add_qc_filter('DPT', 'noval', 0)
-        filt.add_qc_filter('DPT', 'clim', 0)
-        filt.add_qc_filter('DPT', 'nonorm', 0)
-
-        reps.add_filter(filt)
-
-        reps.mds_buddy_check('DPT', climlib.get_field('DPT', 'stdev'), parameters['mds_buddy_check'])
-
-        # SLP buddy check
-        filt = ex.QC_filter()
-        filt.add_qc_filter('POS', 'date', 0)
-        filt.add_qc_filter('POS', 'time', 0)
-        filt.add_qc_filter('POS', 'pos', 0)
-        filt.add_qc_filter('POS', 'blklst', 0)
-        filt.add_qc_filter('POS', 'trk', 0)
-        filt.add_qc_filter('SLP', 'noval', 0)
-        filt.add_qc_filter('SLP', 'clim', 0)
-        filt.add_qc_filter('SLP', 'nonorm', 0)
-
-        reps.add_filter(filt)
-
-        reps.mds_buddy_check('SLP', climlib.get_field('SLP', 'stdev'), parameters['slp_buddy_check'])
-
         extdir = bf.safe_make_dir(out_dir, year, month)
-        reps.write_output(parameters['runid'], extdir, year, month)
 
         if tracking:
             # set QC for output by ID - buoys only and passes base SST QC

@@ -2,6 +2,7 @@ import csv
 import qc
 import numpy as np
 import Extended_IMMA as ex
+import BackgroundField as bf
 import argparse
 import ConfigParser
 import json
@@ -25,63 +26,44 @@ class EasyImma:
             self.data['PT'] = 7
 
 
-def safe_make_dir(out_dir, year, month):
+def safe_make_tracking_dir(out_dir, year, month):
     """
-    Make a directory for QC outcomes for chunks of data reporting their last ob in this year and month
+    Make a directory for QC outcomes from the tracking QC for chunks of data reporting their last ob in this year
+    and month
 
     :param out_dir: directory to use as the base directory for output
     :param year: year for directory name
     :param month: month for directory name
+    :type out_dir: string
+    :type year: integer
+    :type month: integer
     :return: None
     """
     syr = str(year)
     smn = "{:02}".format(month)
-    d1 = out_dir + '/TrackingQC/'
-    d2 = out_dir + '/TrackingQC/' + syr
-    d3 = out_dir + '/TrackingQC/' + syr + '/' + smn + '/'
 
-    try:
-        os.mkdir(d1)
-        print("Directory ", d1, " Created ")
-    except OSError:
-        print("Directory ", d1, " already exists")
-    try:
-        os.mkdir(d2)
-        print("Directory ", d2, " Created ")
-    except OSError:
-        print("Directory ", d2, " already exists")
-    try:
-        os.mkdir(d3)
-        print("Directory ", d3, " Created ")
-    except OSError:
-        print("Directory ", d3, " already exists")
-
-    return d3
+    return bf.safe_make_dir_generic(out_dir, ['TrackingQC', syr, smn])
 
 
-def safe_make_edge_dir(out_dir, y1, m1, y2, m2, edge, runmonthid):
+def safe_make_edge_dir(out_dir, year, month, edge, runmonthid):
     """
     Make a directory for the edge cases
 
     :param out_dir: directory to use as the base directory for output
-    :param y1: start year for chunk
-    :param m1: start month for chunk
-    :param y2: end year for chunk
-    :param m2: end month for chunk
-    :param edge: type of edge case
-    :param runmonthid: identified for this overall run of the QC
+    :param year: end year for chunk
+    :param month: end month for chunk
+    :param edge: type of edge case, should be either "start_edge_case" or "end_edge_case"
+    :param runmonthid: a tag that identifies this overall run of the QC, should be of form YYYYMM-YYYYMM
+    :type out_dir: string
+    :type year: integer
+    :type month: integer
+    :type edge: string
+    :type runmonthid: string 
     :return: None
     """
-    d3 = safe_make_dir(out_dir, y2, m2)
-    d4 = d3 + '/' + edge + '_' + runmonthid + '/'
+    d3 = safe_make_tracking_dir(out_dir, year, month)
 
-    try:
-        os.mkdir(d4)
-        print("Directory ", d4, " Created ")
-    except OSError:
-        print("Directory ", d4, " already exists")
-
-    return d4
+    return bf.safe_make_dir_generic(d3, [edge + '_' + runmonthid])
 
 
 def main(argv):
@@ -139,14 +121,14 @@ def main(argv):
 
     print('Running track QC for ID {}'.format(target_id))
     print('')
-    print(edge[0])
-    print(runmonthid)
+    print("Type of case: {}".format(edge[0]))
+    print("Specific run id from wrapper script: {}".format(runmonthid))
 
     config = ConfigParser.ConfigParser()
     config.read(args.config)
     out_dir = config.get('Directories', 'out_dir')
 
-    print(out_dir)
+    print("{}".format(out_dir))
 
     with open(config.get('Files', 'parameter_file'), 'r') as f:
         parameters = json.load(f)
@@ -278,7 +260,7 @@ def main(argv):
     if len(rep_list) == 0:
         raise UserWarning('no data for buoy ' + target_id)
     print("")
-    print("read in " + str(len(rep_list)) + " reports from the buoy " + target_id)
+    print("read in {} reports from the buoy {}".format(len(rep_list), target_id))
 
     # now perform various tracking qc checks
     # note that any obs filtered out ahead of track qc won't receive qc flags
@@ -298,7 +280,7 @@ def main(argv):
         if filt.test_report(rep) == 0:
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
-    print("passing " + str(len(v_filt)) + " to aground check")
+    print("passing {} to aground check".format(len(v_filt)))
     if oldqc:
         v_filt.buoy_aground_check(parameters['buoy_aground_check'],
                                   False)  # raises AssertionError if check inputs are invalid
@@ -321,7 +303,7 @@ def main(argv):
         if filt.test_report(rep) == 0:
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
-    print("passing " + str(len(v_filt)) + " to picked-up check")
+    print("passing {} to picked-up check".format(len(v_filt)))
     if oldqc:
         v_filt.buoy_speed_check(parameters['buoy_speed_check'],
                                 False)  # raises AssertionError if check inputs are invalid
@@ -350,7 +332,7 @@ def main(argv):
         if filt.test_report(rep) == 0 and rep.get_qc('SST', 'bbud') < 4:
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
-    print("passing " + str(len(v_filt)) + " to tail check")
+    print("passing {} to tail check".format(len(v_filt)))
     v_filt.buoy_tail_check(parameters['buoy_tail_check'], False)  # raises AssertionError if check inputs are invalid
 
     # ---sst biased or noisy buoy QC---
@@ -376,7 +358,7 @@ def main(argv):
         if filt.test_report(rep) == 0 and rep.get_qc('SST', 'bbud') < 4:
             v_filt.add_report(rep)
     v_filt.sort()  # sort in time
-    print("passing " + str(len(v_filt)) + " to biased-noisy check")
+    print("passing {} to biased-noisy check".format(len(v_filt)))
     v_filt.buoy_bias_noise_check(parameters['buoy_bias_noise_check'],
                                  False)  # raises AssertionError if check inputs are invalid
 
@@ -389,25 +371,25 @@ def main(argv):
     # write out the QC outcomes for this chunk for this ID args.yr1,args.mn1,args.yr2,args.mn2)
     # stored in directory corresponding to last month in the chunk
     if 'new' in edge or 'regular' in edge:
-        extdir = safe_make_dir(out_dir, args.yr2, args.mn2)
+        extdir = safe_make_tracking_dir(out_dir, args.yr2, args.mn2)
         if oldqc:
-            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
-            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr2, args.mn2)
 
     if 'start_edge_case' in edge:
-        extdir = safe_make_edge_dir(out_dir, args.yr1, args.mn1, args.yr2, args.mn2, 'start_edge_case', runmonthid)
+        extdir = safe_make_edge_dir(out_dir, args.yr2, args.mn2, 'start_edge_case', runmonthid)
         if oldqc:
-            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
-            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr2, args.mn2)
 
     if 'end_edge_case' in edge:
-        extdir = safe_make_edge_dir(out_dir, args.yr1, args.mn1, args.yr2, args.mn2, 'end_edge_case', runmonthid)
+        extdir = safe_make_edge_dir(out_dir, args.yr2, args.mn2, 'end_edge_case', runmonthid)
         if oldqc:
-            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
-            voy.write_tracking_output(parameters['runid'], extdir, args.yr1, args.mn1, args.yr2, args.mn2)
+            voy.write_tracking_output(parameters['runid'], extdir, args.yr2, args.mn2)
 
 
 #    return voy

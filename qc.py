@@ -127,10 +127,10 @@ def day_in_year(month, day):
     """
     assert month >= 1
     assert month <= 12, str(month)
-    month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(2004)
     assert day >= 1
     assert day <= month_lengths[month - 1]
-    month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(2003)
 
     if month == 1:
         dindex = day
@@ -149,7 +149,7 @@ def get_hires_sst(lat, lon, month, day, hires_field):
     assert lon <= 360.00
     assert month >= 1
     assert month <= 12
-    month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(2004)
     assert day >= 1
     assert day <= month_lengths[month - 1]
 
@@ -175,7 +175,7 @@ def get_sst_daily(lat, lon, month, day, sst):
     assert lon <= 365.00
     assert month >= 1
     assert month <= 12
-    month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(2004)
     assert day >= 1
     assert day <= month_lengths[month - 1]
 
@@ -225,7 +225,7 @@ def get_sst(lat, lon, month, day, sst):
     assert month >= 1
     assert month <= 12
 
-    month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(2004)
 
     assert day >= 1
     assert day <= month_lengths[month - 1]
@@ -888,10 +888,7 @@ def date_check(inyear, inmonth, inday):
     if inmonth < 1 or inmonth > 12:
         result = 1
 
-    if calendar.isleap(inyear):
-        month_lengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    else:
-        month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    month_lengths = get_month_lengths(inyear)
 
     if inday is None:
         result = 1
@@ -1193,9 +1190,7 @@ def dayinyear(year, month, day):
     assert 1 <= month <= 12
     assert day >= 1
 
-    month_lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    if calendar.isleap(year):
-        month_lengths[1] = 29
+    month_lengths = get_month_lengths(year)
 
     assert day <= month_lengths[month - 1], "Day out of range " + str(day)
 
@@ -1674,7 +1669,7 @@ def year_month_gen(year1, month1, year2, month2):
     yield year, month
 
 
-def month_lengths(year):
+def get_month_lengths(year):
     """
     Return a list holding the lengths of the months in a given year
     

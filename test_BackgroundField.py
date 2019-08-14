@@ -2,6 +2,37 @@ import unittest
 import BackgroundField as bf
 
 
+class TestBuildCompletions(unittest.TestCase):
+
+    def test_simple(self):
+
+        base = 'a'
+        subs = ['b', 'c']
+
+        completions = bf.build_completions(base, subs)
+
+        self.assertEqual(completions[0], 'a/b')
+        self.assertEqual(completions[1], 'a/b/c')
+
+    def test_even_simpler(self):
+
+        base = 'a'
+        subs = ['b']
+
+        completions = bf.build_completions(base, subs)
+
+        self.assertEqual(completions[0], 'a/b')
+
+    def test_too_many_slashes(self):
+
+        base = 'a/'
+        subs = ['b']
+
+        completions = bf.build_completions(base, subs)
+
+        self.assertEqual(completions[0], 'a/b')
+
+
 class TestProcessString(unittest.TestCase):
 
     def test_simple(self):

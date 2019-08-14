@@ -459,7 +459,7 @@ class MarineReport:
         updated if any of the time variables are changed.
         """
         if self.getvar('YR') is not None:
-            mlen = qc.month_lengths(self.getvar('YR'))
+            mlen = qc.get_month_lengths(self.getvar('YR'))
             if (self.getvar('MO') is not None and
                     self.getvar('HR') is not None and
                     self.getvar('DY') is not None and
@@ -1559,7 +1559,7 @@ class Voyage:
         estimated from the positions of consecutive reports
         
         :return: list of speeds in km/hr
-        :rtype: float
+        :rtype: list[float]
         """
         spd = []
         for i in range(0, len(self.reps)):
@@ -1813,9 +1813,9 @@ class Voyage:
         for i in range(1, nobs):
 
             if (self.getvar(i, 'vsi') is not None and
-                    self.getvar(i-1, 'vsi') is not None and
+                    self.getvar(i - 1, 'vsi') is not None and
                     self.getvar(i, 'dsi') is not None and
-                    self.getvar(i-1, 'dsi') is not None and
+                    self.getvar(i - 1, 'dsi') is not None and
                     self.getvar(i, 'time_diff') is not None):
 
                 # get increment from initial position
@@ -2411,37 +2411,36 @@ class Voyage:
                     count_write += 1
             outfile.close()
 
-        print("wrote out ", count_write, " obs")
+        print("wrote out {} obs".format(count_write))
         return
 
-    def write_tracking_output(self, runid, icoads_dir, y1, m1, y2, m2):
+    def write_tracking_output(self, runid, icoads_dir, year2, month2):
         """
         Write out the contents of the :class:`.Voyage` including variables and QC flags and tracking QC flags
         all in one file
 
         :param runid: a general name for this run to be added to the filename
         :param icoads_dir: directory into which the outputs get written
-        :param y2: year of last observation in the voyage
-        :param m2 month to last observation in the voyage
+        :param year2: year of last observation in the voyage
+        :param month2 month to last observation in the voyage
         :return: None
         """
 
-        syr = str(y2)
-        smn = "{:02d}".format(m2)
+        syr = str(year2)
+        smn = "{:02d}".format(month2)
 
         safeid = safe_filename(self.reps[0].getvar('ID'))
 
         outfilename = 'Tracking_' + syr + smn + '_' + safeid + '_' + runid + '.csv'
-        outfile = open(icoads_dir + outfilename, 'w')
+        outfile = open(icoads_dir + '/' + outfilename, 'w')
 
         varnames = [['ID'], ['LON'], ['LAT'], ['YR'], ['MO'], ['DY'], ['HR']]
         varnames2 = [['SST'], ['OSTIA'], ['BGVAR'], ['ICE']]
 
-        qc_block1 = ['day', 'isship', 'trk', 'date', 'time', 'pos', 'blklst', 'isbuoy', 'iquam_track',
-                     'isdrifter']  # POS
+        qc_block1 = ['day', 'isship', 'trk', 'date', 'time', 'pos', 'blklst', 'isbuoy', 'iquam_track', 'isdrifter']  # POS
         qc_block2 = ['bud', 'clim', 'nonorm', 'freez', 'noval', 'nbud', 'bbud', 'rep', 'spike', 'hardlimit']  # SST
-        qc_block3 = ['drf_agr', 'drf_spd']
-        qc_block4 = ['drf_tail1', 'drf_tail2', 'drf_bias', 'drf_noise', 'drf_short']
+        qc_block3 = ['drf_agr', 'drf_spd']  # tracking positional QC
+        qc_block4 = ['drf_tail1', 'drf_tail2', 'drf_bias', 'drf_noise', 'drf_short']  # tracking other QC
 
         # UID, ID, LON, LAT, YR, MO, DY, HR, MDS QC flags, track QC flags, SST, OSTIA-SST, OSTIA-BGVAR, OSTIA-ICE.
         header1 = self.reps[0].print_variable_block(varnames, header=True)
@@ -2478,7 +2477,7 @@ class Voyage:
         safeid = safe_filename(self.reps[0].getvar('ID'))
 
         outfilename = 'Variables_' + syr + smn + '_' + safeid + '_' + runid + '.csv'
-        outfile = open(icoads_dir + outfilename, 'w')
+        outfile = open(icoads_dir + '/' + outfilename, 'w')
         varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
                     ['AT'], ['AT', 'anom'],
                     ['SST'], ['SST', 'anom'],
@@ -3131,7 +3130,7 @@ class Deck:
         if test:
             outfilename = 'Test_' + outfilename
 
-        outfile = open(icoads_dir + outfilename, 'w')
+        outfile = open(icoads_dir + '/' + outfilename, 'w')
 
         varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
                     ['AT'], ['AT', 'anom'],
@@ -3173,7 +3172,7 @@ class Deck:
         if test:
             outfilename = 'Test_' + outfilename
 
-        outfile = open(icoads_dir + outfilename, 'w')
+        outfile = open(icoads_dir + '/' + outfilename, 'w')
 
         varnames = [['ID'], ['YR'], ['MO'], ['DY'], ['HR'], ['LAT'], ['LON'],
                     ['AT'], ['AT', 'anom'],

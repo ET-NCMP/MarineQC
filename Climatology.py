@@ -144,7 +144,7 @@ class Climatology:
         """
         if month < 1 or month > 12:
             return None
-        ml = qc.month_lengths(2004)
+        ml = qc.get_month_lengths(2004)
         if day < 1 or day > ml[month - 1]:
             return None
 
@@ -181,7 +181,7 @@ class Climatology:
         """
         if month < 1 or month > 12:
             return None
-        ml = qc.month_lengths(2004)
+        ml = qc.get_month_lengths(2004)
         if day < 1 or day > ml[month - 1]:
             return None
 
