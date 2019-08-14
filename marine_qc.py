@@ -224,7 +224,7 @@ def main(argv):
             one_ship.find_saturated_runs(parameters['saturated_runs'])
             one_ship.find_multiple_rounded_values(parameters['multiple_rounded_values'])
 
-            for varname in ['SST', 'AT', 'AT2', 'DPT']:
+            for varname in ['SST', 'AT', 'AT2', 'DPT', 'SLP']:
                 one_ship.find_repeated_values(parameters['find_repeated_values'],
                                               intype=varname)
 

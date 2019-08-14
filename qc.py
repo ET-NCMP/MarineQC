@@ -143,6 +143,21 @@ def day_in_year(month, day):
 
 
 def get_hires_sst(lat, lon, month, day, hires_field):
+    """
+    Get a value from a high resolution ie 0.25 degree daily SST field
+
+    :param lat: latitude of point to extract
+    :param lon: longitude of point to extract
+    :param month: month of point to extract
+    :param day: day in month of point to extract
+    :param hires_field: the field from which to extract the point
+    :type lat: float
+    :type lon: float
+    :type month: int
+    :type day: int
+    :type hires_field: numpy array
+    :return: the SST from the field at the specified point
+    """
     assert lat >= -90.0
     assert lat <= 90.0
     assert lon >= -180.00
@@ -945,7 +960,7 @@ def p_data_given_gross(q, r_hi, r_lo):
     :param q: quantization of x, i.e. x is an integer multiple of Q
     :param r_hi: the upper limit on x imposed by previous QC choices.
     :param r_lo: the lower limit on x imposed by previous QC choices.
-    :type q : float
+    :type q: float
     :type r_hi: float
     :type r_lo: float
     :return: probability of the observed value given that its a gross error.
@@ -1381,7 +1396,7 @@ def trimmed_mean(inarr, trim):
     
     :param inarr: list of numbers
     :param trim: trimming criteria. A value of 10 trims one tenth of the values off each end of the sorted array before
-    calculating the mean.
+        calculating the mean.
     :type inarr: list of floats
     :type trim: integer
     :return: trimmed mean

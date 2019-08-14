@@ -122,7 +122,7 @@ def course_between_points(lat1, lon1, lat2, lon2):
     :type lat2: float
     :type lon2: float
     :return: return the initial true course in degrees at point one along the great circle between point
-    one and point two
+        one and point two
     :rtype: float
     """
 
@@ -186,7 +186,7 @@ def intermediate_point(lat1, lon1, lat2, lon2, f):
     :type lon2: float
     :type f: float
     :return: return the latitude and longitude of the point a fraction f along the great circle between the
-    first and second points.
+        first and second points.
     :rtype: float
     """
 

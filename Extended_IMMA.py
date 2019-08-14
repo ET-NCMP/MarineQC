@@ -571,7 +571,7 @@ class MarineReport:
         
         :param varname: the name of the climate variable for which you want the climatological average
         :param intype: the type of norm required 'clim' for climatological average and 'stdev' for standard deviation,
-        default is 'clim'
+            default is 'clim'
         :type varname: string
         :type intype: string
         :return: the climatological average (if the climate variable exists), None otherwise.
@@ -648,7 +648,7 @@ class MarineReport:
 
         :param varvalue: valie of variable to be set
         :param varname: variable name to be set in the extended data
-        :type varvalue; float
+        :type varvalue: float
         :type varname: string
         """
         if varname == 'ID':
@@ -1666,7 +1666,7 @@ class Voyage:
         have caused a bias.
 
         :param parameters: A dictionary with two entries 'threshold' Fraction of obs in a :class:`.Voyage` above which
-        rounded obs are flagged and 'min_count' the smallest number of observations to which this check can be applied
+            rounded obs are flagged and 'min_count' the smallest number of observations to which this check can be applied
         :param intype: variable name being checked 'DPT' is default
         :type intype: string
         """
@@ -1711,7 +1711,8 @@ class Voyage:
         Find cases where more than a given proportion of SSTs have the same value
         
         :param parameters: a dictionary with two entries, 'threshold' the maximum fraction of observations that can
-        have a given value and 'min_count' the smallest sequence of observations that this check will be performed on
+            have a given value and 'min_count' the smallest sequence of observations that this check will be performed
+            on
         :param intype: either 'SST' or 'MAT' to find repeated SSTs or MATs
         :type intype: string
         
@@ -2164,7 +2165,7 @@ class Voyage:
         Perform IQUAM like spike check on the :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for max_gradient_space, max_gradient_time,
-        ship_delta_t, buoy_delta_t and number_of_neighbours.
+            ship_delta_t, buoy_delta_t and number_of_neighbours.
         :param intype: Variable to spike check (currently limited to SST)
         :type parameters: dictionary 
         :type intype: string
@@ -2422,7 +2423,7 @@ class Voyage:
         :param runid: a general name for this run to be added to the filename
         :param icoads_dir: directory into which the outputs get written
         :param year2: year of last observation in the voyage
-        :param month2 month to last observation in the voyage
+        :param month2: month to last observation in the voyage
         :return: None
         """
 
@@ -2736,11 +2737,11 @@ class Np_Super_Ob:
         Get buddy limits for new bayesian buddy check
         
         :param stdev1: Field of standard deviations representing standard deviation of difference between target
-        gridcell and complete neighbour average (grid area to neighbourhood difference)
+            gridcell and complete neighbour average (grid area to neighbourhood difference)
         :param stdev2: Field of standard deviations representing standard deviation of difference between a single
-        observation and the target gridcell average (point to grid area difference)
+            observation and the target gridcell average (point to grid area difference)
         :param stdev3: Field of standard deviations representing standard deviation of difference between random
-        neighbour gridcell and full neighbour average (uncertainty in neighbour average)
+            neighbour gridcell and full neighbour average (uncertainty in neighbour average)
         :param limits: three membered list of number of degrees in latitude and longitude and number of pentads
         :param sigma_m: Estimated measurement error uncertainty
         :param noise_scaling: scale noise by a factor of noise_scaling used to match observed variability
@@ -3009,12 +3010,9 @@ class Deck:
         tenth and then multiplied by 10 to yield a flag between 0 and 9.
         
         :param intype: The variable name for the variable that is to be buddy checked.
-        :param stdev1: Field of standard deviations representing standard deviation of difference between target
-        gridcell and complete neighbour average (grid area to neighbourhood difference)
-        :param stdev2: Field of standard deviations representing standard deviation of difference between a single
-        observation and the target gridcell average (point to grid area difference)
-        :param stdev3: Field of standard deviations representing standard deviation of difference between random
-        neighbour gridcell and full neighbour average (uncertainty in neighbour average)
+        :param stdev1: Field of standard deviations representing standard deviation of difference between target gridcell and complete neighbour average (grid area to neighbourhood difference)
+        :param stdev2: Field of standard deviations representing standard deviation of difference between a single observation and the target gridcell average (point to grid area difference)
+        :param stdev3: Field of standard deviations representing standard deviation of difference between random neighbour gridcell and full neighbour average (uncertainty in neighbour average)
         :param parameters: list of parameters
         :type intype: string
         :type stdev1: numpy array
@@ -3022,7 +3020,7 @@ class Deck:
         :type stdev3: numpy array
         """
 
-        assert (intype == 'SST' or intype == 'AT'), "Unknown intype: " + intype
+        assert intype in ['SST', 'AT'], "Unknown intype: " + intype
 
         p0 = parameters['bayesian_buddy_check']['prior_probability_of_gross_error']
         q = parameters['bayesian_buddy_check']['quantization_interval']

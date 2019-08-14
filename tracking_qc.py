@@ -72,7 +72,7 @@ def main(argv):
 
     Invoked as::
     python tracking_qc.py -config configuration.txt -id BUOYID -yr1 YEAR -mn1 MONTH -yr2 YEAR2 -mn2 MONTH2
-                          -edge EDGE -runmonthid RUNID
+    -edge EDGE -runmonthid RUNID
 
     This quality controls drifter data for the chosen ID (which will be end-padded with spaces) over the
     specified time range (where start month=yr1/mn1 and end month=yr2/mn2). The time range should specify a
