@@ -119,7 +119,9 @@ def main(argv):
                 ostia_bg_var = clim.Climatology.from_filename(
                     config.get('Climatologies', qc.season(readmonth) + '_ostia_background'), 'bg_var')
 
-            filename = bf.icoads_filename(icoads_dir, readyear, readmonth, version)
+            filename = bf.icoads_filename_from_stub(parameters['icoads_dir'],
+                                                    parameters['icoads_filenames'],
+                                                    readyear, readmonth)
             try:
                 icoads_file = gzip.open(filename, "r")
             except IOError:

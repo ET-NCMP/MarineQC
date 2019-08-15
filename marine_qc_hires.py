@@ -116,7 +116,9 @@ def main(argv):
 
             print("{} {}".format(readyear, readmonth))
 
-            filename = bf.icoads_filename(icoads_dir, readyear, readmonth, version)
+            filename = bf.icoads_filename_from_stub(parameters['icoads_dir'],
+                                                    parameters['icoads_filenames'],
+                                                    readyear, readmonth)
             try:
                 icoads_file = gzip.open(filename, "r")
             except IOError:

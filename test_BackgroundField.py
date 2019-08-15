@@ -128,5 +128,30 @@ class TestGetBackgroundFilename(unittest.TestCase):
         self.assertEqual(outfile, correctfile)
 
 
+class TestIcoadsFilenameFromStub(unittest.TestCase):
+
+    def test_2013(self):
+
+        dirstubs = ["/project/earthobs/ICOADS/ICOADS.3.0.0/", "/project/earthobs/ICOADS/ICOADS.3.0.1/"]
+        filenamestubs = ["IMMA1_R3.0.0_YYYY-MMMM.gz", "IMMA1_R3.0.1_YYYY-MMMM.gz"]
+
+        testname = bf.icoads_filename_from_stub(dirstubs, filenamestubs, 2003, 9)
+
+        correctname = "/project/earthobs/ICOADS/ICOADS.3.0.0/IMMA1_R3.0.0_2003-09.gz"
+
+        self.assertEqual(testname, correctname)
+
+    def test_2016(self):
+
+        dirstubs = ["/project/earthobs/ICOADS/ICOADS.3.0.0/", "/project/earthobs/ICOADS/ICOADS.3.0.1/"]
+        filenamestubs = ["IMMA1_R3.0.0_YYYY-MMMM.gz", "IMMA1_R3.0.1_YYYY-MMMM.gz"]
+
+        testname = bf.icoads_filename_from_stub(dirstubs, filenamestubs, 2016, 12)
+
+        correctname = "/project/earthobs/ICOADS/ICOADS.3.0.1/IMMA1_R3.0.1_2016-12.gz"
+
+        self.assertEqual(testname, correctname)
+
+
 if __name__ == '__main__':
     unittest.main()

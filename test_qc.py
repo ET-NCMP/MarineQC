@@ -4,6 +4,8 @@ import numpy.ma as ma
 import numpy as np
 import qc
 from netCDF4 import Dataset
+import json
+import ConfigParser
 
 
 class Testseason(unittest.TestCase):
@@ -92,7 +94,20 @@ class TestDayInYear(unittest.TestCase):
 class TestQCMethodsGetHiresSST(unittest.TestCase):
 
     def setUp(self):
-        sst_climatology_file = '/project/mds/HADISST2/OIv2_clim_MDS_6190_0.25x0.25xdaily_365.nc'
+        """
+        The high resolution SST climatology is specified in the parameter file.
+        """
+
+        with open('Parameters.json', 'r') as f:
+            parameters = json.load(f)
+
+        sst_climatology_file = None
+        for entry in parameters['hires_climatologies']:
+            if entry[0] == 'SST' and entry[1] == 'mean':
+                sst_climatology_file = entry[2]
+
+        assert sst_climatology_file is not None, 'sst_climatology file not specified in parameter file'
+
         climatology = Dataset(sst_climatology_file)
         self.sst = climatology.variables['temperature'][:]
 
@@ -103,13 +118,13 @@ class TestQCMethodsGetHiresSST(unittest.TestCase):
 
     #        del self.dummyclim
 
-    @unittest.skip("demonstrating skipping because this takes for-ev-er")
+    # @unittest.skip("demonstrating skipping because this takes for-ev-er")
     def test_sst_is_none_at_S_pole_at_all_longitudes(self):
         for xx in range(1440):
             val = qc.get_hires_sst(-89.9, -179.9 + 0.25 * xx, 1, 1, self.sst)
             self.assertEqual(val, None)
 
-    @unittest.skip("demonstrating skipping because this takes for-ev-er")
+    # @unittest.skip("demonstrating skipping because this takes for-ev-er")
     def test_sst_at_N_pole(self):
         val = qc.get_hires_sst(89.89, -179.9, 1, 1, self.sst)
         self.assertAlmostEqual(val, -1.607731, delta=0.000001)
@@ -122,15 +137,21 @@ class TestQCMethodsGetHiresSST(unittest.TestCase):
 class TestQCMethodsGetSST(unittest.TestCase):
 
     def setUp(self):
-        sst_climatology_file = '/home/h04/hadjj/HadSST2_pentad_climatology.nc'
+        """
+        The test climatologies used here are specified in the configuration file in the TestFiles section
+        """
+        config = ConfigParser.ConfigParser()
+        config.read('configuration.txt')
+
+        sst_climatology_file = config.get('TestFiles', 'sst_climatology_file')
         climatology = Dataset(sst_climatology_file)
         self.sst = climatology.variables['sst'][:]
 
-        mat_climatology_file = '/home/h04/hadjj/HadNMAT2_pentad_climatology.nc'
+        mat_climatology_file = config.get('TestFiles', 'mat_climatology_file')
         climatology = Dataset(mat_climatology_file)
         self.mat = climatology.variables['nmat'][:]
 
-        stdev_climatology_file = '/home/h04/hadjj/HadSST2_pentad_stdev_climatology.nc'
+        stdev_climatology_file = config.get('TestFiles', 'stdev_climatology_file')
         climatology = Dataset(stdev_climatology_file)
         self.sdv = climatology.variables['sst'][:]
 

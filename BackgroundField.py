@@ -85,6 +85,36 @@ def safe_make_dir(out_dir, year, month):
     return d2
 
 
+def icoads_filename_from_stub(dirstubs, filenamestubs, year, month):
+    """
+    Build ICOADS filename from stubs. Choose the first filled filename that exists
+
+    :param dirstubs: list of directories with placeholders for years, YYYY, and month, MMMM
+    :param filenamestubs: list of filenames with placeholders for years, YYYY, and months, MMMM
+    :param year: year for file
+    :param month: month for file
+    :return: completed file name
+    """
+    if year is None or month is None:
+        return None
+
+    assert len(dirstubs) == len(filenamestubs), 'dirstubs and filename stubs have different numbers of members'
+
+    candidatefilenames = []
+
+    for i, dirstub in enumerate(dirstubs):
+        filenamestub = filenamestubs[i]
+        candidatefilenames.append(make_filename(dirstub, filenamestub, year, month, 1))
+
+    outfilename = None
+    for fname in candidatefilenames:
+        if outfilename is None:
+            if os.path.isfile(fname):
+                outfilename = fname
+
+    return outfilename
+
+
 def icoads_filename(icoads_dir, readyear, readmonth, version):
     """
     Build the filename for an ICOADS file
