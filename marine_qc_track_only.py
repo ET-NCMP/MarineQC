@@ -4,8 +4,29 @@ marine_qc.py invoked by typing::
 
   python2.7 marine_qc_track_only.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-tracking]
 
-This quality controls data for the chosen years. The location of the data and the locations of the climatology files are
-all to be specified in the configuration files.
+Inputs
+
+-year1
+  year of the first month to QC
+
+-month1
+  month of the first month to QC
+
+-year2
+  year of the last month to QC
+
+-month2
+  month of the last month to QC
+
+-config
+  specifies the configuration file to use
+
+-tracking
+  switches on the tracking QC output, which produces one file per month per drifter ID in addition to other output
+
+This quality controls data for the chosen years and only runs the bits needed to produce tracking output (faster than
+a full QC run). The location of the data and the locations of the climatology files are all to be specified in the
+configuration files.
 """
 
 import gzip

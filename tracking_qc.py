@@ -71,8 +71,32 @@ def main(argv):
     Calls the tracking qc checks for a specified drifting buoy
 
     Invoked as::
-    python tracking_qc.py -config configuration.txt -id BUOYID -yr1 YEAR -mn1 MONTH -yr2 YEAR2 -mn2 MONTH2
-    -edge EDGE -runmonthid RUNID
+
+      python tracking_qc.py -config configuration.txt -id BUOYID -yr1 YEAR -mn1 MONTH -yr2 YEAR2 -mn2 MONTH2
+      -edge EDGE -runmonthid RUNID
+
+    Inputs
+
+    -id
+      ID of the buoy to which tracking QC will be applied
+
+    -yr1
+      year of the first month to QC
+
+    -mn1
+      month of the first month to QC
+
+    -yr2
+      year of the last month to QC
+
+    -mn2
+      month of the last month to QC
+
+    -edge
+      specific type of edge case, one of: new, regular, start_edge_case, end_edge_case
+
+    -runmonthid
+      used to label special directories for start and end edge cases. This is of the form YYYYMM-YYYYMM
 
     This quality controls drifter data for the chosen ID (which will be end-padded with spaces) over the
     specified time range (where start month=yr1/mn1 and end month=yr2/mn2). The time range should specify a

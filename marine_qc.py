@@ -5,7 +5,35 @@ marine_qc.py invoked by typing::
   python2.7 marine_qc.py -config configuration.txt -year1 1850 -year2 1855 -month1 1 -month2 1 [-tracking] 
 
 This quality controls data for the chosen years. The location of the data and the locations of the climatology files are
-all to be specified in the configuration files.
+all to be specified in the configuration files:
+
+Inputs
+
+-year1
+  year of the first month to QC
+
+-month1
+  month of the first month to QC
+
+-year2
+  year of the last month to QC
+
+-month2
+  month of the last month to QC
+
+-config
+  specifies the configuration file to use
+
+-tracking
+  switches on the tracking QC output, which produces one file per month per drifter ID in addition to other output and
+  performs matches with OSTIA background fields.
+
+Inputs are specified in the configuration file and the parameters file (whose location is specified in the configuration
+file.
+
+Output from the QC is written to the out_dir specified in the configuration file. Each output file line start with
+an ICOADS UID so that they can be stitched together at a later date.
+
 """
 
 import gzip
@@ -23,8 +51,7 @@ import sys
 def main(argv):
     """
     This program reads in data from ICOADS.3.0.0/ICOADS.3.0.1 and applies quality control processes to it, flagging data
-    as good or bad according to a set of different criteria. Optionally it will replace drifting buoy SST data in
-    ICOADS.3.0.1 with drifter data taken from the GDBC portal.
+    as good or bad according to a set of different criteria.
 
     The first step of the process is to read in various SST and MAT climatologies from file. These are 1degree latitude 
     by 1 degree longitude by 73 pentad fields in NetCDF format.
@@ -32,13 +59,13 @@ def main(argv):
     The program then loops over all specified years and months reads in the data needed to QC that month and then 
     does the QC. There are three stages in the QC
     
-    basic QC - this proceeds one observation at a time. Checks are relatively simple and detect gross errors
+    basic QC - this proceeds one :class:`.MarineReport` at a time. Checks are relatively simple and detect gross errors
+
+    track check - this works on :class:`.Voyage` objects consisting of all the observations from a single ship (or
+    at least a single ID) and identifies observations which make for an implausible ship track
     
-    track check - this works on Voyages consisting of all the observations from a single ship (or at least a single ID) 
-    and identifies observations which make for an implausible ship track
-    
-    buddy check - this works on Decks which are large collections of observations and compares observations to their
-    neighbours
+    buddy check - this works on :class:`.Deck` objects which are large collections of observations and compares
+    observations to their neighbours. Buddy checks are performed on a range of different variables.
     """
 
     print('########################')

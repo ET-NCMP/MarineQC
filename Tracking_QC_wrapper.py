@@ -117,19 +117,37 @@ def main(argv):
     """
     Tracking_QC_wrapper.py
 
-    script to control the running of the tracking QC. Reads in files containing list of IDs for
-    each month and decides when to quality control the observations. Call as, for example
+    script to control the running of the tracking QC::
 
-    python Tracking_QC_wrapper.py -config configuration.txt -gap 3 -y1 1985 -y2 2005 -m1 1 -m2 12 -edge new
+      python Tracking_QC_wrapper.py -config configuration.txt -gap 3 -yr1 1985 -yr2 2005 -mn1 1 -mn2 12 -edge new
 
-    -confg specifies the location of the configuration file
-    -gap specifies gap in months without obs after which a platform is deemed to have expired and tracking QC can be run
-    -y1 -m1 start year and month
-    -y2 -m2 end year and month
-    -edge specifies how different cases should be treated. 'all' will run QC for all chunks separated by "gap" months of
-    data; 'standard' will run for all chunks except for those that start or end fewer than "gap" months from the start
-    or end of the series; 'new' will run only those chunks that have a gap of exactly "gap" months from the end of the
-    series.
+    Reads in files containing list of IDs for each month and decides when to quality control the observations:
+
+    Inputs
+
+    -config
+      specifies the location of the configuration file.
+
+    -gap
+      specifies the gap in months that must separate chunks of data
+
+    -yr1
+      year of start month.
+
+    -mn1
+      month of start month.
+
+    -yr2
+      year of end month.
+
+    -mn2
+      month of end month.
+
+    -edge
+      specifies how different cases should be treated. 'all' will run QC for all chunks separated by "gap" months of
+      data; 'standard' will run for all chunks except for those that start or end fewer than "gap" months from the start
+      or end of the series; 'new' will run only those chunks that have a gap of exactly "gap" months from the end of the
+      series.
 
     The three "edge" cases allow for running in different modes. In principle, 'standard' will QC everything that will
     not change from the addition of data to the start or end of the series. It is intended for running all the
@@ -145,19 +163,19 @@ def main(argv):
     parser = argparse.ArgumentParser(description='Marine QC system, main program')
     parser.add_argument('-config', type=str, default='configuration.txt', help='name of config file')
     parser.add_argument('-gap', type=int, default=3, help='gap of -gap months needed to trigger QC of ID')
-    parser.add_argument('-y1', type=int, default=1985, help='first year to analyse')
-    parser.add_argument('-y2', type=int, default=2019, help='last year to analyse')
-    parser.add_argument('-m1', type=int, default=1, help='first month to analyse in first year')
-    parser.add_argument('-m2', type=int, default=12, help='last month to analyse in last year')
+    parser.add_argument('-yr1', type=int, default=1985, help='first year to analyse')
+    parser.add_argument('-yr2', type=int, default=2019, help='last year to analyse')
+    parser.add_argument('-mn1', type=int, default=1, help='first month to analyse in first year')
+    parser.add_argument('-mn2', type=int, default=12, help='last month to analyse in last year')
     parser.add_argument('-edge', type=str, default='standard', help='How to deal with edge cases')
 
     args = parser.parse_args()
 
     inputfile = args.config
-    y1 = args.y1
-    y2 = args.y2
-    m1 = args.m1
-    m2 = args.m2
+    y1 = args.yr1
+    y2 = args.yr2
+    m1 = args.mn1
+    m2 = args.mn2
     gap = args.gap
     edge = args.edge
 
