@@ -11,10 +11,10 @@ first described in Atkinson et al. [2013]. The general procedures described
 in Atkinson et al. [2013] were later revised and improved for the SST CCI 2 project.
 Documentation and IDL code for the revised (and original) procedures can be found 
 in the CMA FCM code repository. The code in this module represents a port of the
-revised IDL code into the python marine QC suite.
+revised IDL code into the python marine QC suite. New versions of the aground
+and speed checks have also been added.
 
-These functions perform tracking QC checks on collections of :class:`.MarineReport` 
-taken from :class:`.Voyage` 
+These functions perform tracking QC checks on a :class:`.Voyage` 
 
 References:
 
@@ -34,14 +34,14 @@ def track_day_test(year, month, day, hour, lat, lon, elevdlim=-2.5):
     If so return daytime is True
        
     This is the "day" test used by tracking QC to decide whether an SST measurement is night or day. 
-    This is important because daytime diurnal heating affects comparison with an SST background.
+    This is important because daytime diurnal heating can affect comparison with an SST background.
     It uses the function sunangle to calculate the elevation of the sun. A default solar_zenith angle 
     of 92.5 degrees (elevation of -2.5 degrees) delimits night from day. 
    
     :param year: Year
     :param month: Month
     :param day: Day
-    :param hour: Hour expressed as decimal fractions of 24 hour day
+    :param hour: Hour expressed as decimal fraction (e.g. 20.75 = 20:45 pm)
     :param lat: Latitude in degrees
     :param lon: Longitude in degrees
     :param elevdlim: Elevation day/night delimiter in degrees above horizon
@@ -94,8 +94,7 @@ def trim_mean(inarr, trim):
     Calculate a resistant (aka robust) mean of an input array given a trimming criteria.
 
     :param inarr: array of numbers
-    :param trim: trimming criteria. A value of 10 trims one tenth of the values off each end of the sorted array before
-    calculating the mean.
+    :param trim: trimming criteria. A value of 10 trims one tenth of the values off each end of the sorted array before calculating the mean.
     :type inarr: array of floats
     :type trim: integer
     :return: trimmed mean
@@ -121,7 +120,7 @@ def trim_std(inarr, trim):
 
     :param inarr: array of numbers
     :param trim: trimming criteria. A value of 10 trims one tenth of the values off each end of the sorted array before
-    calculating the standard deviation.
+      calculating the standard deviation.
     :type inarr: array of floats
     :type trim: integer
     :return: trimmed standard deviation
@@ -163,16 +162,11 @@ def aground_check(reps, smooth_win=41, min_win_period=8, max_win_period=10):
     available within this range. If a drifter is deemed aground and subsequently starts moving (e.g. if a drifter
     has moved very slowly for a prolonged period) incorrectly flagged reports will be reinstated.
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken
-    from :class:`.Voyage`,
-     each report must have a valid longitude, latitude and time-difference   
+    :param reps: a time-sorted list of drifter observations in format :class:`.Voyage`, each report must have a valid longitude, latitude and time-difference   
     :param smooth_win: length of window (odd number) in datapoints used for smoothing lon/lat
-    :param min_win_period: minimum period of time in days over which position is assessed for no movement
-    (see description)
-    :param max_win_period: maximum period of time in days over which position is assessed for no movement 
-     (this should be greater than min_win_period and allow for erratic temporal sampling e.g. min_win_period+2
-     to allow for gaps of up to 2-days in sampling).  
-    :type reps: a list of :class:`.MarineReport` objects
+    :param min_win_period: minimum period of time in days over which position is assessed for no movement (see description)
+    :param max_win_period: maximum period of time in days over which position is assessed for no movement (this should be greater than min_win_period and allow for erratic temporal sampling e.g. min_win_period+2 to allow for gaps of up to 2-days in sampling).  
+    :type reps: a :class:`.Voyage`
     :type smooth_win: integer
     :type min_win_period: integer 
     :type max_win_period: integer
@@ -198,8 +192,8 @@ def aground_check(reps, smooth_win=41, min_win_period=8, max_win_period=10):
 
     nrep = len(reps)
     if nrep <= smooth_win:  # records shorter than smoothing-window can't be evaluated
+        print('Voyage too short for QC, setting flags to pass')
         for rep in reps:
-            print('Voyage too short for QC, setting flags to pass')
             rep.set_qc('POS', 'drf_agr', 0)
         return
 
@@ -315,13 +309,12 @@ def new_aground_check(reps, smooth_win=41, min_win_period=8):
     is less than 'min_win_period'. If a drifter is deemed aground and subsequently starts moving (e.g. if a drifter
     has followed a circular path) incorrectly flagged reports will be reinstated.
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken
-    from :class:`.Voyage`,
-     each report must have a valid longitude, latitude and time-difference   
+    :param reps: a time-sorted list of drifter observations in format :class:`.Voyage`,
+      each report must have a valid longitude, latitude and time-difference   
     :param smooth_win: length of window (odd number) in datapoints used for smoothing lon/lat
     :param min_win_period: minimum period of time in days over which position is assessed for no movement (see
-    description)
-    :type reps: a list of :class:`.MarineReport` objects
+      description)
+    :type reps: a :class:`.Voyage`
     :type smooth_win: integer
     :type min_win_period: integer 
     """
@@ -342,8 +335,8 @@ def new_aground_check(reps, smooth_win=41, min_win_period=8):
 
     nrep = len(reps)
     if nrep <= smooth_win:  # records shorter than smoothing-window can't be evaluated
+        print('Voyage too short for QC, setting flags to pass')
         for rep in reps:
-            print('Voyage too short for QC, setting flags to pass')
             rep.set_qc('POS', 'drf_agr', 0)
         return
 
@@ -446,25 +439,26 @@ def speed_check(reps, speed_limit=2.5, min_win_period=0.8, max_win_period=1.0):
     to minimise the effect of these errors when calculating speed e.g. for reports separated by 24 hours
     errors of several cm/s would result which are two orders of magnitude less than a fast ocean current
     which seems reasonable. Conversley, the period of time chosen should not be too long so as to resolve 
-    short-lived burst of speed on manouvering ships. Because temporal sampling can be erratic the time period 
-    over which this assessment is made is specified as a range (bound by 'min_win_period' and 'max_win_period')
-    - assesment uses the longest time separation available within this range.
+    short-lived burst of speed on manouvering ships. Larger positional errors may also trigger the check.  
+    Because temporal sampling can be erratic the time period over which this assessment is made is specified
+    as a range (bound by 'min_win_period' and 'max_win_period') - assesment uses the longest time separation 
+    available within this range.
 
     IMPORTANT - for optimal performance, drifter records with observations failing this check should be
     subsequently manually reviewed. Ships move around in all sorts of complicated ways that can readily
     confuse such a simple check (e.g. pausing at sea, crisscrossing its own path) and once some erroneous 
-    movement is detected it is likely a human operator can then better pick out the actual bad data. 
+    movement is detected it is likely a human operator can then better pick out the actual bad data. False
+    fails caused by positional errors (particularly in fast ocean currents) will also need reinstating. 
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken from
-    :class:`.Voyage`,
-     each report must have a valid longitude, latitude and time-difference   
+    :param reps: a time-sorted list of drifter observations in format :class:`.Voyage`,
+      each report must have a valid longitude, latitude and time-difference   
     :param speed_limit: maximum allowable speed for an in situ drifting buoy (metres per second) 
     :param min_win_period: minimum period of time in days over which position is assessed for speed estimates (see
-    description)
+      description)
     :param max_win_period: maximum period of time in days over which position is assessed for speed estimates
-     (this should be greater than min_win_period and allow for some erratic temporal sampling e.g. min_win_period+0.2
-     to allow for gaps of up to 0.2-days in sampling).
-    :type reps: a list of :class:`.MarineReport` objects
+      (this should be greater than min_win_period and allow for some erratic temporal sampling e.g. min_win_period+0.2
+      to allow for gaps of up to 0.2-days in sampling).
+    :type reps: a :class:`.Voyage`
     :type speed_limit: float
     :type min_win_period: float 
     :type max_win_period: float 
@@ -486,8 +480,8 @@ def speed_check(reps, speed_limit=2.5, min_win_period=0.8, max_win_period=1.0):
 
     nrep = len(reps)
     if nrep <= 1:  # pairs of records are needed to evaluate speed
+        print('Voyage too short for QC, setting flags to pass')
         for rep in reps:
-            print('Voyage too short for QC, setting flags to pass')
             rep.set_qc('POS', 'drf_spd', 0)
         return
 
@@ -547,7 +541,7 @@ def speed_check(reps, speed_limit=2.5, min_win_period=0.8, max_win_period=1.0):
             time_to_end = hrs[-1] - hrs[i]
 
 
-def new_speed_check(reps, iquam_parameters, speed_limit=2.5, min_win_period=0.5):
+def new_speed_check(reps, iquam_parameters, speed_limit=3.0, min_win_period=0.375):
     """
     Check to see whether a drifter has been picked up by a ship (out of water) based on 1/100th degree 
     precision positions. A flag 'drf_spd' is set for each input report: flag=1 for reports deemed picked up, 
@@ -559,11 +553,12 @@ def new_speed_check(reps, iquam_parameters, speed_limit=2.5, min_win_period=0.5)
     this 'straight line' speed between the two points is a minimum speed estimate given a less-direct
     path may have been followed). Positional errors introduced by lon/lat 'jitter' and data precision 
     can be of order several km's. Reports must be separated by a suitably long period of time (the 'min_win_period') 
-    to minimise the effect of these errors when calculating speed e.g. for reports separated by 24 hours
-    errors of several cm/s would result which are two orders of magnitude less than a fast ocean current
-    which seems reasonable. Conversley, the period of time chosen should not be too long so as to resolve 
-    short-lived burst of speed on manouvering ships. For each report, speed is assessed over the shortest 
-    available period that exceeds 'min_win_period'.
+    to minimise the effect of these errors when calculating speed e.g. for reports separated by 9 hours
+    errors of order 10 cm/s would result which are a few percent of fast ocean current speed. Conversley, 
+    the period of time chosen should not be too long so as to resolve short-lived burst of speed on 
+    manouvering ships. Larger positional errors may also trigger the check.  
+
+    For each report, speed is assessed over the shortest available period that exceeds 'min_win_period'.
     
     Prior to assessment the drifter record is screened for positional errors using the iQuam track check
     method (from :class:`.Voyage`). When running the iQuam check the record is treated as a ship (not a
@@ -573,16 +568,16 @@ def new_speed_check(reps, iquam_parameters, speed_limit=2.5, min_win_period=0.5)
     IMPORTANT - for optimal performance, drifter records with observations failing this check should be
     subsequently manually reviewed. Ships move around in all sorts of complicated ways that can readily
     confuse such a simple check (e.g. pausing at sea, crisscrossing its own path) and once some erroneous 
-    movement is detected it is likely a human operator can then better pick out the actual bad data.      
+    movement is detected it is likely a human operator can then better pick out the actual bad data. False
+    fails caused by positional errors (particularly in fast ocean currents) will also need reinstating.     
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken
-    from :class:`.Voyage`,
-     each report must have a valid longitude, latitude and time-difference
+    :param reps: a time-sorted list of drifter observations in format :class:`.Voyage`,
+      each report must have a valid longitude, latitude and time-difference
     :param iquam_parameters: Parameter dictionary for Voyage.iquam_track_check() function.   
     :param speed_limit: maximum allowable speed for an in situ drifting buoy (metres per second) 
     :param min_win_period: minimum period of time in days over which position is assessed for speed estimates (see
-    description)
-    :type reps: a list of :class:`.MarineReport` objects
+      description)
+    :type reps: a :class:`.Voyage`
     :type iquam_parameters: dictionary 
     :type speed_limit: float
     :type min_win_period: float 
@@ -600,10 +595,10 @@ def new_speed_check(reps, iquam_parameters, speed_limit=2.5, min_win_period=0.5)
 
     nrep = len(reps)
     if nrep <= 1:  # pairs of records are needed to evaluate speed
-        for rep in reps:
-            print('Voyage too short for QC, setting flags to pass')
+       print('Voyage too short for QC, setting flags to pass') 
+       for rep in reps:
             rep.set_qc('POS', 'drf_spd', 0)
-        return
+       return
 
     # retrieve lon/lat/time_diff variables from marine reports
     lon = np.empty(nrep)
@@ -710,22 +705,21 @@ def sst_tail_check(reps, long_win_len=121, long_err_std_n=3.0, short_win_len=30,
     observations that are too biased or noisy as a whole. The short tail check looks for individual observations
     exceeding a noise limit within the window.
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken from
-    :class:`.Voyage`, each report must have a valid longitude, latitude and time and matched values for OSTIA, ICE and
-    BGVAR in its extended data
+    :param reps: a time-sorted list of drifter observations in format :class:`.Voyage`, each report must have a 
+      valid longitude, latitude and time and matched values for OSTIA, ICE and BGVAR in its extended data
     :param long_win_len: length of window (in data-points) over which to make long tail-check (must be an odd number)
     :param long_err_std_n: number of standard deviations of combined background and drifter bias error, beyond which
-    data fail bias check
+      data fail bias check
     :param short_win_len: length of window (in data-points) over which to make the short tail-check
     :param short_err_std_n: number of standard deviations of combined background and drifter error, beyond which data
-    are deemed suspicious
+      are deemed suspicious
     :param short_win_n_bad: minimum number of suspicious data points required for failure of short check window
     :param drif_inter: spread of biases expected in drifter data (standard deviation, degC)
     :param drif_intra: maximum random measurement uncertainty reasonably expected in drifter data (standard deviation,
-    degC)
+      degC)
     :param background_err_lim: background error variance beyond which the SST background is deemed unreliable (degC
-    squared)
-    :type reps: a list of :class:`.MarineReport` objects
+      squared)
+    :type reps: a :class:`.Voyage`
     :type long_win_len: integer
     :type long_err_std_n: float
     :type short_win_len: integer
@@ -930,21 +924,20 @@ def sst_biased_noisy_check(reps, n_eval=30, bias_lim=1.10, drif_intra=1.0, drif_
     error as entirely correlated across a long-record, which maximises its possible impact on the bias assessment. In
     this case the histogram approach was used as the limit could be tuned to give better results.
 
-    :param reps: a time-sorted list of drifter observations in format :class:`.MarineReport` taken
-    from :class:`.Voyage`,
-     each report must have a valid longitude, latitude and time and matched values for OSTIA, ICE and BGVAR in its
-     extended data
+    :param reps: a time-sorted list of drifter observations in format from :class:`.Voyage`,
+      each report must have a valid longitude, latitude and time and matched values for OSTIA, ICE and BGVAR in its
+      extended data
     :param n_eval: the minimum number of drifter observations required to be assessed by the long-record check
     :param bias_lim: maximum allowable drifter-background bias, beyond which a record is considered biased (degC)
     :param drif_intra: maximum random measurement uncertainty reasonably expected in drifter data (standard
-    deviation, degC)
+      deviation, degC)
     :param drif_inter: spread of biases expected in drifter data (standard deviation, degC)
     :param err_std_n: number of standard deviations of combined background and drifter error, beyond which
-    short-record data are deemed suspicious
+      short-record data are deemed suspicious
     :param n_bad: minimum number of suspicious data points required for failure of short-record check 
     :param background_err_lim: background error variance beyond which the SST background is deemed unreliable
-    (degC squared)
-    :type reps: a list of :class:`.MarineReport` objects
+      (degC squared)
+    :type reps: a :class:`.Voyage`
     :type n_eval: integer 
     :type bias_lim: float 
     :type drif_intra: float

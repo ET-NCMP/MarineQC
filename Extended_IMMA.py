@@ -18,7 +18,7 @@ import trackqc as tqc
 import CalcHums
 
 VARLIST = ['YR', 'MO', 'DY', 'HR', 'LAT', 'LON', 'DS', 'VS', 'SLP', 'AT', 'AT2', 'SST', 'DCK', 'PT', 'SID', 'DPT',
-           'SHU', 'VAP', 'CRH', 'CWB', 'DPD']
+           'SHU', 'VAP', 'CRH', 'CWB', 'DPD', 'W', 'WI','D', 'DI', 'WW']
 
 
 def safe_filename(infilename):
@@ -369,7 +369,7 @@ class MarineReport:
         self.calculate_dt()
         self.calculate_dsi_vsi()
 
-        self.special_qc_types = ['POS', 'SST', 'AT', 'DPT', 'SLP']
+        self.special_qc_types = ['POS', 'SST', 'AT', 'DPT', 'SLP', 'W', 'D']
 
     def lat(self):
         """
@@ -1105,11 +1105,13 @@ class MarineReportQC(MarineReport):
 
         self.humidity_blacklist()
         self.mat_blacklist()
+        self.wind_blacklist()
 
         self.do_base_sst_qc(parameters['SST'])
         self.do_base_mat_qc(parameters['AT'])
         self.do_base_dpt_qc(parameters['DPT'])
         self.do_base_slp_qc(parameters['SLP'])
+        self.do_base_wind_qc(parameters['W'])
 
         # special check for silly values in all humidity-related variables
         # and set DPT hardlimit flag if necessary
@@ -1119,6 +1121,27 @@ class MarineReportQC(MarineReport):
                 self.set_qc('DPT', 'hardlimit', 1)
 
         self.do_kate_mat_qc(parameters['AT'])
+
+    def perform_base_wind_qc(self, parameters):
+        """
+        Run all the base Wind Speed QC checks
+
+        :param parameters:
+        :return:
+        """
+        self.do_fix_missing_hour()
+
+        self.is_buoy()
+        self.is_ship()
+
+        self.wind_blacklist()
+
+        self.do_position_check()
+        self.do_date_check()
+        self.do_time_check()
+        self.do_blacklist()
+
+        self.do_base_wind_qc(parameters['W'])
 
     def perform_base_dat_qc(self, parameters):
         """
@@ -1252,6 +1275,15 @@ class MarineReportQC(MarineReport):
                                  self.lon(),
                                  self.getvar('PT')))
 
+    def do_base_wind_qc(self, parameters):
+        """
+        Run the base Wind speed QC checks
+        """
+        self.set_qc('W', 'noval', qc.value_check(self.getvar('W')))
+        self.set_qc('W', 'hardlimit', qc.hard_limit(self.getvar('W'), parameters['hard_limits']))
+        self.set_qc('W', 'consistency', qc.wind_consistency(self.getvar('W'), self.getvar('D'),
+                                                            parameters['variable_limit']))
+
     def do_base_slp_qc(self, parameters):
         """
         Run the base SLP QC checks, non-missing, climatology check and check for normal
@@ -1356,6 +1388,17 @@ class MarineReportQC(MarineReport):
             self.set_qc('POS', 'is780', 1)
         else:
             self.set_qc('POS', 'is780', 0)
+
+    def wind_blacklist(self):
+        """
+        Flag certain sources as ineligible for wind QC. Based on Shawn Smith's list
+        """
+        self.set_qc('W', 'wind_blacklist', 0)
+
+        if self.getvar('DCK') in [708, 780]:
+            self.set_qc('W', 'wind_blacklist', 1)
+
+        pass
 
     def humidity_blacklist(self):
         """
@@ -2239,7 +2282,7 @@ class Voyage:
 
     def buoy_aground_check(self, parameters, sort=True):
         """
-        Perform drifting buoy tracking qc aground check on the :class:`.Voyage`.
+        Perform drifting buoy tracking qc aground check on a :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for smooth_win, min_win_period and max_win_period.
         :param sort: True to sort voyage reports in time before QC
@@ -2264,7 +2307,7 @@ class Voyage:
 
     def new_buoy_aground_check(self, parameters, sort=True):
         """
-        Perform drifting buoy tracking qc aground check on the :class:`.Voyage`.
+        Perform drifting buoy tracking qc aground check on a :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for smooth_win and min_win_period.
         :param sort: True to sort voyage reports in time before QC
@@ -2288,7 +2331,7 @@ class Voyage:
 
     def buoy_speed_check(self, parameters, sort=True):
         """
-        Perform drifting buoy tracking qc speed check on the :class:`.Voyage`.
+        Perform drifting buoy tracking qc speed check on a :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for speed_limit, min_win_period and max_win_period.
         :param sort: True to sort voyage reports in time before QC
@@ -2313,7 +2356,7 @@ class Voyage:
 
     def new_buoy_speed_check(self, iquam_parameters, parameters, sort=True):
         """
-        Perform drifting buoy tracking qc speed check on the :class:`.Voyage`.
+        Perform drifting buoy tracking qc speed check on a :class:`.Voyage`.
 
         :param iquam_parameters: Parameter dictionary for Voyage.iquam_track_check() function.
         :param parameters: Parameter dictionary containing entries for speed_limit and min_win_period.
@@ -2339,7 +2382,7 @@ class Voyage:
 
     def buoy_tail_check(self, parameters, sort=True):
         """
-        Perform drifting buoy tracking qc tail check on the :class:`.Voyage`.
+        Perform drifting buoy tracking qc tail check on a :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for long_win_len, long_err_std_n, short_win_len,
                            short_err_std_n, short_win_n_bad, drift_inter, drif_intra and background_err_lim.
@@ -2367,7 +2410,7 @@ class Voyage:
 
     def buoy_bias_noise_check(self, parameters, sort=True):
         """
-        Perform check for biased or noisy drifting buoys on the :class:`.Voyage`.
+        Perform check for biased or noisy drifting buoys on a :class:`.Voyage`.
 
         :param parameters: Parameter dictionary containing entries for n_eval, bias_lim, drif_intra, drif_inter, 
                            err_std_n, n_bad and background_err_lim.
@@ -3135,7 +3178,7 @@ class Deck:
                     ['SST'], ['SST', 'anom'],
                     ['DPT'], ['DPT', 'anom'],
                     ['SLP'], ['SLP', 'anom'],
-                    ['OSTIA']]
+                    ['OSTIA'], ['W'], ['D']]
 
         outfile.write(self.reps[0].print_variable_block(varnames, header=True))
         for rep in self.reps:
@@ -3150,7 +3193,9 @@ class Deck:
                        'AT': ['bud', 'clim', 'nonorm', 'freez', 'noval', 'mat_blacklist', 'bbud', 'rep', 'hardlimit'],
                        'DPT': ['bud', 'clim', 'nonorm', 'freez', 'noval', 'hum_blacklist', 'bbud', 'rep', 'ssat',
                                'repsat', 'round', 'hardlimit'],
-                       'SLP': ['bud', 'clim', 'nonorm', 'noval', 'rep']}
+                       'SLP': ['bud', 'clim', 'nonorm', 'noval', 'rep'],
+                       'W': ['noval', 'hardlimit', 'consistency', 'wind_blacklist']
+                       }
 
         self.write_qc(runid, icoads_dir, year, month, allvarnames, test=test)
 

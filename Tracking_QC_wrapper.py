@@ -64,7 +64,7 @@ def write_submission(config, targetid, yr1, mn1, yr2, mn2, edge, runmonthid, out
     :param mn2:  the end month of the chunk of data to be QCd
     :param edge: specifies what kind of case this is
     :param runmonthid: a runmonthid which will be used to label directories for start and end edge cases
-    :param outdir: the base directory used to write out log files and store submitted jobs
+    :param outdir: the base directory used to write out tracking QC log files and store submitted jobs
     :param runid: the name of the run as specified in the parameter file
     :return:
     """
@@ -147,17 +147,18 @@ def main(argv):
       specifies how different cases should be treated. 'all' will run QC for all chunks separated by "gap" months of
       data; 'standard' will run for all chunks except for those that start or end fewer than "gap" months from the start
       or end of the series; 'new' will run only those chunks that have a gap of exactly "gap" months from the end of the
-      series.
+      series; 'noend' will run for all chunks except for those that end fewer than "gap" months from the end of the series.
 
-    The three "edge" cases allow for running in different modes. In principle, 'standard' will QC everything that will
+    The four "edge" cases allow for running in different modes. In principle, 'standard' will QC everything that will
     not change from the addition of data to the start or end of the series. It is intended for running all the
     historical QC in preparation for monthly updates. The flag 'new' can be used for real time updates to only QC those
     IDs that have not been eligible for QC in earlier months and have an appropriate gap at the end of the series. The
     flag 'all' will QC everything, including chunks at the start and end of the series which may change with extra data
-    appended to either end of the series.
+    appended to either end of the series. The 'noend' flag can be used to QC everything that will not change from addition
+    of data to the end of the series, which may be more appropriate ahead of monthly updates.
 
     Note that adding extra data in the middle of the series is liable to change all QC outcomes regardless of whether QC
-    was run in 'all', 'standard' or 'new' configurations.
+    was run in 'all', 'standard', 'noend' or 'new' configurations.
     """
 
     parser = argparse.ArgumentParser(description='Marine QC system, main program')
@@ -187,6 +188,7 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read(inputfile)
     out_dir = config.get('Directories', 'out_dir')
+    track_out_dir = config.get('Directories', 'track_out_dir')
 
     with open(config.get('Files', 'parameter_file'), 'r') as f:
         parameters = json.load(f)
@@ -220,13 +222,13 @@ def main(argv):
             if edge == 'all':
                 print('Submit', yy1, mm1, yy2, mm2, cl)
                 write_submission(inputfile, targetid, yy1, mm1, yy2, mm2, cl,
-                                 runmonthid, out_dir, parameters['runid'])
+                                 runmonthid, track_out_dir, parameters['runid'])
 
             if edge == 'standard':
                 if 'regular' in cl:
                     print('Submit', yy1, mm1, yy2, mm2, cl)
                     write_submission(inputfile, targetid, yy1, mm1, yy2, mm2, cl,
-                                     runmonthid, out_dir, parameters['runid'])
+                                     runmonthid, track_out_dir, parameters['runid'])
                 else:
                     print('Ignore', yy1, mm1, yy2, mm2, cl)
 
@@ -234,7 +236,7 @@ def main(argv):
                 if 'new' in cl:
                     print('Submit', yy1, mm1, yy2, mm2, cl)
                     write_submission(inputfile, targetid, yy1, mm1, yy2, mm2, cl,
-                                     runmonthid, out_dir, parameters['runid'])
+                                     runmonthid, track_out_dir, parameters['runid'])
                 else:
                     print('Ignore', yy1, mm1, yy2, mm2, cl)
 
@@ -242,7 +244,7 @@ def main(argv):
                 if 'regular' in cl or 'start_edge_case' in cl:
                     print('Submit', yy1, mm1, yy2, mm2, cl)
                     write_submission(inputfile, targetid, yy1, mm1, yy2, mm2, cl,
-                                     runmonthid, out_dir, parameters['runid'])
+                                     runmonthid, track_out_dir, parameters['runid'])
                 else:
                     print('Ignore', yy1, mm1, yy2, mm2, cl)
 

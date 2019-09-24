@@ -8,6 +8,16 @@ import json
 import ConfigParser
 
 
+class TestWindConsistency(unittest.TestCase):
+    def test_calm(self):
+        self.assertEqual(0, qc.wind_consistency(0.0, 361, 4.0))
+        self.assertEqual(1, qc.wind_consistency(1.0, 361, 4.0))
+
+    def test_variable(self):
+        self.assertEqual(0, qc.wind_consistency(2.0, 362, 4.0))
+        self.assertEqual(1, qc.wind_consistency(5.0, 362, 4.0))
+
+
 class Testseason(unittest.TestCase):
     def test_all(self):
         self.assertEqual(qc.season(1), 'DJF')

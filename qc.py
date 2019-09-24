@@ -914,6 +914,32 @@ def date_check(inyear, inmonth, inday):
     return result
 
 
+def wind_consistency(windspeed, winddirection, variablelimit):
+    """
+    Test to compare windspeed to winddirection.
+    :param windspeed:  wind speed
+    :param winddirection: wind direction in range 1-362
+    :param variablelimit: maximum wind speed consistent with variable wind direction
+    :type windspeed: float
+    :type winddirection: integer
+    :type variablelimit: float
+    :return: pass (0) or fail (1)
+    :rtype: integer
+    """
+
+    result = 0
+
+    # direction 361 is Calm i.e. windspeed should be zero
+    if winddirection == 361 and windspeed != 0:
+        result = 1
+
+    # direction 363 is Variable i.e. low windspeed
+    if winddirection == 362 and windspeed > variablelimit:
+        result = 1
+
+    return result
+
+
 def p_data_given_good(x, q, r_hi, r_lo, mu, sigma):
     """
     Calculate the probability of an observed value x given a normal distribution with mean mu 

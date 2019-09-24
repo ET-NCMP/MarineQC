@@ -1,7 +1,7 @@
 # Python module for handling IMMA data
 #  IMMA documentation is at http://icoads.noaa.gov/e-doc/imma
 
-import re     #  Regular Expressions
+#import re     #  Regular Expressions
 
 class IMMA:
     
@@ -63,7 +63,7 @@ class IMMA:
                     Length = "102" # Ugly!
                 else:
                     Length     = line[2:4]
-                if( re.search("\S",Length)==None): 
+                if Length.isspace():
                     Length = None
                 if ( Length != None ):
                     Length = int(Length)
@@ -109,7 +109,7 @@ class IMMA:
                 Position = len(as_string)
 
         # Blanks mean value is undefined
-            if( re.search("\S",self[p]) == None ):
+            if self[p].isspace():
                 self[p] = None
                 continue    #  Next parameter
 

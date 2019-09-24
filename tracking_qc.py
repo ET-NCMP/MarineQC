@@ -9,7 +9,6 @@ import json
 import sys
 import os
 
-
 class EasyImma:
     """
     This is a quick and dirty class to mimic the IMMA data structure for easy reading
@@ -77,6 +76,9 @@ def main(argv):
 
     Inputs
 
+    -config
+      specifies the location of the configuration file.
+
     -id
       ID of the buoy to which tracking QC will be applied
 
@@ -99,24 +101,21 @@ def main(argv):
       used to label special directories for start and end edge cases. This is of the form YYYYMM-YYYYMM
 
     This quality controls drifter data for the chosen ID (which will be end-padded with spaces) over the
-    specified time range (where start month=yr1/mn1 and end month=yr2/mn2). The time range should specify a
-    single complete drifter record. The location of the input data and the location of the qc-parameters file are 
-    specified in the configuration file. The qc-parameters file specifies the input parameters used by the various 
-    tracking checks. Input data are from the marine QC system. These are in 'per-ID per-month' csv format with 
-    observation variables, basic QC flags and SST QC flags stored in separate files and linkable via observation UID. 
+    specified time range. The time range should specify a single complete drifter record. The location of the 
+    input data and the location of the qc-parameters file are specified in the configuration file. The qc-parameters 
+    file specifies the input parameters used by the various tracking checks. Input data are from the marine QC system. 
+    These are in 'per-ID per-month' csv format with observation variables, basic QC flags and SST QC flags stored in 
+    separate files and linkable via observation UID. 
 
-    A drifting buoy record is first assembled from the input data files and stored as :class:`.Voyage` of 
-    :class:`.MarineReport`. This record is then passed to the various tracking QC checks. Some observations that
+    A drifting buoy record is first assembled from the input data files and stored as a :class:`.Voyage` of 
+    :class:`.MarineReport` s. This record is then passed to the various tracking QC checks. Some observations that
     fail basic or SST QC are not passed to the tracking QC checks and will not receive tracking QC flags. 
     Which observations are filtered out is dependent on tracking QC check.
 
-    Output is written to a file in the out_dir specified in the configuration file. Where it is written depends on the
+    Output is written to a file in the track_out_dir specified in the configuration file. Where it is written depends on the
     EDGE flag (EDGE can be 'new', 'regular', 'start_edge_case' or 'end_edge_case'). The RUNID is intended to label
     the directories to which edge cases are sent. It should be of the form YYYMM-YYYMM specifying the start and end
     dates for which the overall QC was run.
-
-    Returns a time-sorted drifting buoy record with tracking QC flags in
-    format :class:`.Voyage` of :class:`.MarineReport`.
 
     UserWarning is raised for problems with the input files.
     AssertionError is raised if inputs (parameters or MarineReport data) to a QC check are invalid
@@ -131,13 +130,13 @@ def main(argv):
     parser.add_argument('-mn2', type=int, help='Last month of data for drifting buoy')
     parser.add_argument('-edge', nargs='+', help='list of edge case descriptors')
     parser.add_argument('-runmonthid', type=str, default='',
-                        help='string for tagging directories should be of form YYYMM-YYYYMM')
+                        help='string for tagging directories should be of form YYYYMM-YYYYMM')
     args = parser.parse_args()
 
     edge = args.edge
     runmonthid = args.runmonthid
 
-    oldqc = True
+    oldqc = False # this can be used to switch in the old versions of the aground and speed checks
 
     target_id = args.id
     while len(target_id) < 9:
@@ -151,6 +150,7 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read(args.config)
     out_dir = config.get('Directories', 'out_dir')
+    track_out_dir = config.get('Directories', 'track_out_dir')
 
     print("{}".format(out_dir))
 
@@ -395,21 +395,21 @@ def main(argv):
     # write out the QC outcomes for this chunk for this ID args.yr1,args.mn1,args.yr2,args.mn2)
     # stored in directory corresponding to last month in the chunk
     if 'new' in edge or 'regular' in edge:
-        extdir = safe_make_tracking_dir(out_dir, args.yr2, args.mn2)
+        extdir = safe_make_tracking_dir(track_out_dir, args.yr2, args.mn2)
         if oldqc:
             voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
             voy.write_tracking_output(parameters['runid'], extdir, args.yr2, args.mn2)
 
     if 'start_edge_case' in edge:
-        extdir = safe_make_edge_dir(out_dir, args.yr2, args.mn2, 'start_edge_case', runmonthid)
+        extdir = safe_make_edge_dir(track_out_dir, args.yr2, args.mn2, 'start_edge_case', runmonthid)
         if oldqc:
             voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
             voy.write_tracking_output(parameters['runid'], extdir, args.yr2, args.mn2)
 
     if 'end_edge_case' in edge:
-        extdir = safe_make_edge_dir(out_dir, args.yr2, args.mn2, 'end_edge_case', runmonthid)
+        extdir = safe_make_edge_dir(track_out_dir, args.yr2, args.mn2, 'end_edge_case', runmonthid)
         if oldqc:
             voy.write_tracking_output(parameters['runid']+'oldqc', extdir, args.yr2, args.mn2)
         else:
